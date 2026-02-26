@@ -1,17 +1,16 @@
-// D:\dev\beauty-app\src\app\auth\page.tsx
-export const dynamic = 'force-dynamic'
 'use client'
+export const dynamic = 'force-dynamic'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
- 
+
 export default function AuthPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLogin, setIsLogin] = useState(true)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
- 
+
   const handleAuth = async () => {
     setLoading(true)
     try {
@@ -30,7 +29,7 @@ export default function AuthPage() {
       setLoading(false)
     }
   }
- 
+
   return (
     <div className="min-h-screen bg-pink-50 flex items-center justify-center">
       <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md">
