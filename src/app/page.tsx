@@ -14,15 +14,15 @@ export default function HomePage() {
   const router = useRouter()
 
   useEffect(() => {
-  supabase.auth.getUser().then(async ({ data }) => {
-    setUser(data.user)
-    if (data.user) {
-      const { data: prof } = await supabase.from('profiles').select('role').eq('id', data.user.id).single()
-      setProfile(prof)
-    }
-  })
-  fetchSalons()
-}, [])
+    supabase.auth.getUser().then(async ({ data }) => {
+      setUser(data.user)
+      if (data.user) {
+        const { data: prof } = await supabase.from('profiles').select('role').eq('id', data.user.id).single()
+        setProfile(prof)
+      }
+    })
+    fetchSalons()
+  }, [])
 
   useEffect(() => { fetchSalons() }, [search, area])
 
@@ -37,46 +37,36 @@ export default function HomePage() {
   const handleLogout = async () => {
     await supabase.auth.signOut()
     setUser(null)
+    setProfile(null)
   }
-
-  {user ? (
-  <div className="flex gap-2">
-    {profile?.role === 'salon' && (
-      <button onClick={() => router.push('/dashboard')}
-        className="text-xs bg-pink-100 text-pink-600 px-3 py-1 rounded-full font-bold">
-        管理画面
-      </button>
-    )}
-    <button onClick={handleLogout}
-      className="text-xs bg-white text-pink-500 px-3 py-1 rounded-full font-bold">
-      ログアウト
-    </button>
-  </div>
-) : (
-  <Link href="/auth" className="text-xs bg-white text-pink-500 px-3 py-1 rounded-full font-bold">
-    ログイン
-  </Link>
-)}
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* ヘッダー */}
       <header className="bg-pink-500 text-white p-4 flex justify-between items-center">
         <h1 className="text-2xl font-bold">💄 BeautyBook</h1>
-        <div>
+        <div className="flex gap-2">
           {user ? (
-            <button onClick={handleLogout} className="text-sm bg-white text-pink-500 px-3 py-1 rounded-full font-bold">
-              ログアウト
-            </button>
+            <>
+              {profile?.role === 'salon' && (
+                <button onClick={() => router.push('/dashboard')}
+                  className="text-xs bg-pink-100 text-pink-600 px-3 py-1 rounded-full font-bold">
+                  管理画面
+                </button>
+              )}
+              <button onClick={handleLogout}
+                className="text-xs bg-white text-pink-500 px-3 py-1 rounded-full font-bold">
+                ログアウト
+              </button>
+            </>
           ) : (
-            <Link href="/auth" className="text-sm bg-white text-pink-500 px-3 py-1 rounded-full font-bold">
+            <Link href="/auth"
+              className="text-xs bg-white text-pink-500 px-3 py-1 rounded-full font-bold">
               ログイン
             </Link>
           )}
         </div>
       </header>
 
-      {/* 検索 */}
       <div className="p-4 bg-white shadow">
         <input
           placeholder="サロン名で検索"
@@ -98,7 +88,6 @@ export default function HomePage() {
         </select>
       </div>
 
-      {/* サロン一覧 */}
       <div className="p-4">
         {salons.length === 0 ? (
           <p className="text-center text-gray-400 mt-8">サロンが見つかりません</p>
