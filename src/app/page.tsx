@@ -206,7 +206,7 @@ export default function HomePage() {
                   <p className="text-sm font-bold mb-2">{profile.full_name} さん</p>
                 )}
                 <div className="space-y-2">
-                  <a href="#" className="block text-xs text-pink-600 hover:underline">▶ 予約履歴</a>
+                  <a href="/mypage" className="block text-xs text-pink-600 hover:underline">▶ 予約履歴</a>
                   <a href="#" className="block text-xs text-pink-600 hover:underline">▶ お気に入りサロン</a>
                   <a href="#" className="block text-xs text-pink-600 hover:underline">▶ プロフィール編集</a>
                 </div>
