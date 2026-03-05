@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 export default function HomePage() {
+  const [profile, setProfile] = useState<any>(null)
   const [salons, setSalons] = useState<any[]>([])
   const [search, setSearch] = useState('')
   const [area, setArea] = useState('')
@@ -13,9 +14,15 @@ export default function HomePage() {
   const router = useRouter()
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user))
-    fetchSalons()
-  }, [])
+  supabase.auth.getUser().then(async ({ data }) => {
+    setUser(data.user)
+    if (data.user) {
+      const { data: prof } = await supabase.from('profiles').select('role').eq('id', data.user.id).single()
+      setProfile(prof)
+    }
+  })
+  fetchSalons()
+}, [])
 
   useEffect(() => { fetchSalons() }, [search, area])
 
@@ -34,23 +41,22 @@ export default function HomePage() {
 
   {user ? (
   <div className="flex gap-2">
-    {/* サロンオーナーにはダッシュボードボタン */}
-    <button onClick={async () => {
-      const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-      if (data?.role === 'salon') router.push('/dashboard')
-    }} className="text-xs bg-pink-100 text-pink-600 px-3 py-1 rounded-full font-bold">
-      管理画面
-    </button>
+    {profile?.role === 'salon' && (
+      <button onClick={() => router.push('/dashboard')}
+        className="text-xs bg-pink-100 text-pink-600 px-3 py-1 rounded-full font-bold">
+        管理画面
+      </button>
+    )}
     <button onClick={handleLogout}
       className="text-xs bg-white text-pink-500 px-3 py-1 rounded-full font-bold">
       ログアウト
     </button>
   </div>
-  ) : (
+) : (
   <Link href="/auth" className="text-xs bg-white text-pink-500 px-3 py-1 rounded-full font-bold">
     ログイン
   </Link>
-  )}
+)}
 
   return (
     <div className="min-h-screen bg-gray-50">
