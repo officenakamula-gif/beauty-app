@@ -17,6 +17,8 @@ const AREAS: Record<string, string[]> = {
   '兵庫': ['神戸','三宮'],
 }
 
+const GENRES = ['ヘアサロン', 'ネイル・まつげ', 'リラク・エステ']
+
 export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -33,7 +35,7 @@ export default function DashboardPage() {
   const galleryRef = useRef<HTMLInputElement>(null)
 
   const [salonForm, setSalonForm] = useState({
-    name: '', prefecture: '東京', area: '渋谷',
+    name: '', genre: 'ヘアサロン', prefecture: '東京', area: '渋谷',
     address: '', nearest_station: '', description: '', phone: ''
   })
   const [menuForm, setMenuForm] = useState({ name: '', price: '', duration: '' })
@@ -56,9 +58,14 @@ export default function DashboardPage() {
       setSalon(salonData)
       const pref = Object.keys(AREAS).find(p => AREAS[p].includes(salonData.area)) || '東京'
       setSalonForm({
-        name: salonData.name || '', prefecture: pref, area: salonData.area || '渋谷',
-        address: salonData.address || '', nearest_station: salonData.nearest_station || '',
-        description: salonData.description || '', phone: salonData.phone || ''
+        name: salonData.name || '',
+        genre: salonData.genre || 'ヘアサロン',
+        prefecture: pref,
+        area: salonData.area || '渋谷',
+        address: salonData.address || '',
+        nearest_station: salonData.nearest_station || '',
+        description: salonData.description || '',
+        phone: salonData.phone || ''
       })
       const { data: menuData } = await supabase.from('menus').select('*').eq('salon_id', salonData.id)
       setMenus(menuData || [])
@@ -122,8 +129,9 @@ export default function DashboardPage() {
     }
     setSaving(true)
     const payload = {
-      name: salonForm.name, area: salonForm.area, address: salonForm.address,
-      nearest_station: salonForm.nearest_station, description: salonForm.description, phone: salonForm.phone,
+      name: salonForm.name, genre: salonForm.genre, area: salonForm.area,
+      address: salonForm.address, nearest_station: salonForm.nearest_station,
+      description: salonForm.description, phone: salonForm.phone,
     }
     if (salon) {
       const { error } = await supabase.from('salons').update(payload).eq('id', salon.id)
@@ -168,13 +176,9 @@ export default function DashboardPage() {
       imageUrl = await uploadImage(stylistImageFile, `salons/${salon.id}/stylists`)
     }
     const { error } = await supabase.from('stylists').insert({
-      salon_id: salon.id,
-      name: stylistForm.name,
-      role: stylistForm.role,
+      salon_id: salon.id, name: stylistForm.name, role: stylistForm.role,
       experience_years: stylistForm.experience_years ? parseInt(stylistForm.experience_years) : null,
-      description: stylistForm.description,
-      instagram: stylistForm.instagram,
-      image_url: imageUrl,
+      description: stylistForm.description, instagram: stylistForm.instagram, image_url: imageUrl,
     })
     if (error) { alert('エラー: ' + error.message); setUploading(false); return }
     setStylistForm({ name: '', role: '', experience_years: '', description: '', instagram: '' })
@@ -197,9 +201,16 @@ export default function DashboardPage() {
     setReservations(reservations.map(r => r.id === id ? { ...r, status } : r))
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">読み込み中...</p></div>
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <p className="text-gray-400">読み込み中...</p>
+    </div>
+  )
 
-  const statusColor: any = { pending: 'bg-yellow-100 text-yellow-700', confirmed: 'bg-green-100 text-green-700', cancelled: 'bg-red-100 text-red-700', completed: 'bg-gray-100 text-gray-600' }
+  const statusColor: any = {
+    pending: 'bg-yellow-100 text-yellow-700', confirmed: 'bg-green-100 text-green-700',
+    cancelled: 'bg-red-100 text-red-700', completed: 'bg-gray-100 text-gray-600'
+  }
   const statusLabel: any = { pending: '未確認', confirmed: '確認済', cancelled: 'キャンセル', completed: '完了' }
 
   return (
@@ -209,7 +220,8 @@ export default function DashboardPage() {
           <h1 className="text-lg font-bold">💅 サロン管理画面</h1>
           <p className="text-xs opacity-75">{user?.email}</p>
         </div>
-        <button onClick={() => router.push('/')} className="text-xs bg-white text-pink-500 px-3 py-1 rounded-full font-bold">
+        <button onClick={() => router.push('/')}
+          className="text-xs bg-white text-pink-500 px-3 py-1 rounded-full font-bold">
           🏠 トップへ戻る
         </button>
       </header>
@@ -217,7 +229,9 @@ export default function DashboardPage() {
       <div className="flex border-b bg-white overflow-x-auto">
         {(['salon', 'menus', 'stylists', 'reservations'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 py-3 text-xs font-bold whitespace-nowrap px-2 transition ${tab === t ? 'border-b-2 border-pink-500 text-pink-500' : 'text-gray-400'}`}>
+            className={`flex-1 py-3 text-xs font-bold whitespace-nowrap px-2 transition ${
+              tab === t ? 'border-b-2 border-pink-500 text-pink-500' : 'text-gray-400'
+            }`}>
             {t === 'salon' ? '🏪 サロン情報' : t === 'menus' ? '📋 メニュー' : t === 'stylists' ? '✂️ スタイリスト' : '📅 予約'}
           </button>
         ))}
@@ -228,26 +242,20 @@ export default function DashboardPage() {
         {/* サロン情報タブ */}
         {tab === 'salon' && (
           <div className="space-y-4">
-            {/* 画像アップロード */}
             {salon && (
               <div className="bg-white rounded-xl shadow p-4">
                 <h2 className="font-bold text-lg mb-3">📸 サロン画像</h2>
-
-                {/* トップ画像 */}
                 <div className="mb-4">
                   <label className="text-xs font-bold text-gray-600 block mb-2">トップ画像（1枚）</label>
                   {salon.top_image && (
                     <img src={salon.top_image} alt="トップ画像" className="w-full h-40 object-cover rounded-lg mb-2" />
                   )}
-                  <button onClick={() => topImageRef.current?.click()}
-                    disabled={uploading}
+                  <button onClick={() => topImageRef.current?.click()} disabled={uploading}
                     className="w-full border-2 border-dashed border-pink-300 text-pink-400 py-3 rounded-lg text-sm font-bold">
                     {uploading ? 'アップロード中...' : salon.top_image ? '🔄 変更する' : '＋ トップ画像を追加'}
                   </button>
                   <input ref={topImageRef} type="file" accept="image/*" className="hidden" onChange={handleTopImageUpload} />
                 </div>
-
-                {/* ギャラリー画像 */}
                 <div>
                   <label className="text-xs font-bold text-gray-600 block mb-2">店内・サロン画像（複数可）</label>
                   {(salon.gallery_images || []).length > 0 && (
@@ -263,8 +271,7 @@ export default function DashboardPage() {
                       ))}
                     </div>
                   )}
-                  <button onClick={() => galleryRef.current?.click()}
-                    disabled={uploading}
+                  <button onClick={() => galleryRef.current?.click()} disabled={uploading}
                     className="w-full border-2 border-dashed border-pink-300 text-pink-400 py-3 rounded-lg text-sm font-bold">
                     {uploading ? 'アップロード中...' : '＋ 画像を追加（複数選択可）'}
                   </button>
@@ -273,13 +280,19 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* サロン基本情報 */}
             <div className="bg-white rounded-xl shadow p-4">
               <h2 className="font-bold text-lg mb-4">サロン情報の{salon ? '編集' : '登録'}</h2>
               <div className="mb-3">
                 <label className="text-xs font-bold text-gray-600">サロン名 *</label>
                 <input value={salonForm.name} onChange={e => setSalonForm({ ...salonForm, name: e.target.value })}
                   placeholder="例：SALON de BEAUTÉ" className="w-full border rounded-lg p-2 mt-1 text-sm" />
+              </div>
+              <div className="mb-3">
+                <label className="text-xs font-bold text-gray-600">ジャンル *</label>
+                <select value={salonForm.genre} onChange={e => setSalonForm({ ...salonForm, genre: e.target.value })}
+                  className="w-full border rounded-lg p-2 mt-1 text-sm">
+                  {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
               </div>
               <div className="mb-3">
                 <label className="text-xs font-bold text-gray-600">都道府県 *</label>
@@ -366,8 +379,6 @@ export default function DashboardPage() {
           <div>
             <div className="bg-white rounded-xl shadow p-4 mb-4">
               <h2 className="font-bold text-lg mb-3">スタイリストを追加</h2>
-
-              {/* スタイリスト画像 */}
               <div className="mb-3 flex items-center gap-3">
                 <div className="w-16 h-16 rounded-full bg-pink-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                   {stylistImagePreview
@@ -387,7 +398,6 @@ export default function DashboardPage() {
                     }
                   }} />
               </div>
-
               <input value={stylistForm.name} onChange={e => setStylistForm({ ...stylistForm, name: e.target.value })}
                 placeholder="名前 *" className="w-full border rounded-lg p-2 mb-2 text-sm" />
               <input value={stylistForm.role} onChange={e => setStylistForm({ ...stylistForm, role: e.target.value })}
@@ -403,7 +413,6 @@ export default function DashboardPage() {
                 {uploading ? 'アップロード中...' : '＋ 追加する'}
               </button>
             </div>
-
             <div className="bg-white rounded-xl shadow p-4">
               <h2 className="font-bold text-lg mb-3">登録済みスタイリスト（{stylists.length}人）</h2>
               {stylists.length === 0
@@ -439,15 +448,19 @@ export default function DashboardPage() {
               : reservations.map(res => (
                 <div key={res.id} className="p-3 border rounded-lg mb-2">
                   <div className="flex justify-between items-center mb-1">
-                    <span className={`text-xs px-2 py-1 rounded-full font-bold ${statusColor[res.status]}`}>{statusLabel[res.status]}</span>
+                    <span className={`text-xs px-2 py-1 rounded-full font-bold ${statusColor[res.status]}`}>
+                      {statusLabel[res.status]}
+                    </span>
                     <span className="text-xs text-gray-400">{new Date(res.reserved_at).toLocaleString('ja-JP')}</span>
                   </div>
                   <p className="text-sm font-bold">{res.menus?.name}</p>
                   <p className="text-xs text-gray-500">¥{res.menus?.price?.toLocaleString()}</p>
                   {res.status === 'pending' && (
                     <div className="flex gap-2 mt-2">
-                      <button onClick={() => updateReservationStatus(res.id, 'confirmed')} className="flex-1 bg-green-100 text-green-700 text-xs py-1 rounded font-bold">✅ 確認する</button>
-                      <button onClick={() => updateReservationStatus(res.id, 'cancelled')} className="flex-1 bg-red-100 text-red-700 text-xs py-1 rounded font-bold">❌ キャンセル</button>
+                      <button onClick={() => updateReservationStatus(res.id, 'confirmed')}
+                        className="flex-1 bg-green-100 text-green-700 text-xs py-1 rounded font-bold">✅ 確認する</button>
+                      <button onClick={() => updateReservationStatus(res.id, 'cancelled')}
+                        className="flex-1 bg-red-100 text-red-700 text-xs py-1 rounded font-bold">❌ キャンセル</button>
                     </div>
                   )}
                 </div>
