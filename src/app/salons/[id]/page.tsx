@@ -16,7 +16,7 @@ export default function SalonDetailPage() {
   const [selectedTime, setSelectedTime] = useState('')
   const [loading, setLoading] = useState(false)
   const [user, setUser] = useState<any>(null)
-  const [tab, setTab] = useState<'info'|'menu'|'stylists'>('info')
+  const [tab, setTab] = useState<'info' | 'menu' | 'stylists'>('info')
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user))
@@ -47,7 +47,7 @@ export default function SalonDetailPage() {
 
   if (!salon) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">読み込み中...</p></div>
 
-  const times = ['10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00']
+  const times = ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00']
   const today = new Date().toISOString().split('T')[0]
 
   return (
@@ -81,11 +81,31 @@ export default function SalonDetailPage() {
 
         {/* サロン情報タブ */}
         {tab === 'info' && (
-          <div className="bg-white rounded-xl shadow p-4">
-            <h3 className="font-bold mb-2">サロンについて</h3>
-            {salon.description
-              ? <p className="text-sm text-gray-600">{salon.description}</p>
-              : <p className="text-sm text-gray-400">説明文はまだありません</p>}
+          <div className="space-y-4">
+            {/* トップ画像 */}
+            {salon.top_image && (
+              <img src={salon.top_image} alt={salon.name} className="w-full h-48 object-cover rounded-xl shadow" />
+            )}
+
+            {/* 説明文 */}
+            <div className="bg-white rounded-xl shadow p-4">
+              <h3 className="font-bold mb-2">サロンについて</h3>
+              {salon.description
+                ? <p className="text-sm text-gray-600">{salon.description}</p>
+                : <p className="text-sm text-gray-400">説明文はまだありません</p>}
+            </div>
+
+            {/* ギャラリー */}
+            {(salon.gallery_images || []).length > 0 && (
+              <div className="bg-white rounded-xl shadow p-4">
+                <h3 className="font-bold mb-3">📷 店内・サロン画像</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {(salon.gallery_images || []).map((url: string, i: number) => (
+                    <img key={i} src={url} alt="" className="w-full h-24 object-cover rounded-lg" />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
