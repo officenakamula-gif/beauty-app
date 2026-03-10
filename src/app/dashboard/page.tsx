@@ -244,10 +244,18 @@ export default function DashboardPage() {
                     <h1 className="text-lg font-bold">💅 サロン管理画面</h1>
                     <p className="text-xs opacity-75">{user?.email}</p>
                 </div>
-                <button onClick={() => router.push('/')}
-                    className="text-xs bg-white text-pink-500 px-3 py-1 rounded-full font-bold">
-                    🏠 トップへ戻る
-                </button>
+                <div className="flex gap-2">
+                    <button onClick={() => router.push('/')}
+                        className="text-xs bg-white text-pink-500 px-3 py-1 rounded-full font-bold">
+                        🏠 トップへ戻る
+                    </button>
+                    <button onClick={async () => {
+                        await supabase.auth.signOut()
+                        router.push('/')
+                    }} className="text-xs bg-pink-400 text-white px-3 py-1 rounded-full font-bold">
+                        ログアウト
+                    </button>
+                </div>
             </header>
 
             <div className="flex border-b bg-white overflow-x-auto">
