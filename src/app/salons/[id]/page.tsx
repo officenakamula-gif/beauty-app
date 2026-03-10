@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
 import BlockButton from '@/components/BlockButton'
+import { sendEmail, emailTemplates } from '@/lib/email'
 
 export default function SalonDetailPage() {
   const { id } = useParams() as { id: string }
@@ -34,15 +35,41 @@ export default function SalonDetailPage() {
 
   const makeReservation = async () => {
     if (!user) { router.push('/auth'); return }
-    if (!selectedMenu || !selectedDate || !selectedTime) { alert('メニュー・日付・時間を選んでください'); return }
+    if (!selectedMenu || !selectedDate || !selectedTime) {
+      alert('メニュー・日付・時間を選んでください'); return
+    }
     setLoading(true)
     const reservedAt = `${selectedDate}T${selectedTime}:00+09:00`
-    const { error } = await supabase.from('reservations').insert({
+    const { data: res, error } = await supabase.from('reservations').insert({
       user_id: user.id, salon_id: id, menu_id: selectedMenu.id, reserved_at: reservedAt
-    })
+    }).select().single()
+
+    if (error) {
+      alert('予約失敗: ' + error.message)
+      setLoading(false)
+      return
+    }
+
+    // ユーザーにメール
+    const dateStr = `${selectedDate} ${selectedTime}`
+    await sendEmail(
+      user.email!,
+      ...Object.values(emailTemplates.reservationPending(salon.name, selectedMenu.name, dateStr)) as [string, string]
+    )
+
+    // サロンオーナーにメール
+    const { data: ownerProfile } = await supabase
+      .from('profiles').select('username').eq('id', salon.owner_id).single()
+    if (ownerProfile?.username) {
+      await sendEmail(
+        ownerProfile.username,
+        ...Object.values(emailTemplates.newReservation(user.email!, selectedMenu.name, dateStr)) as [string, string]
+      )
+    }
+
     setLoading(false)
-    if (error) alert('予約失敗: ' + error.message)
-    else alert('✅ 予約完了！')
+    alert('✅ 予約申請しました！承認をお待ちください。')
+    router.push('/mypage')
   }
 
   if (!salon) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">読み込み中...</p></div>
