@@ -11,18 +11,46 @@ const GENRES = [
   { key: 'リラク・エステ', label: 'リラク・エステ', icon: '💆' },
 ]
 
-const AREAS = ['渋谷', '新宿', '銀座', '恵比寿', '表参道', '原宿', '六本木', '池袋', '品川', '横浜', '梅田', '難波', '名古屋', '博多', '札幌']
+const REGIONS: Record<string, Record<string, string[]>> = {
+  '関東': {
+    '東京': ['渋谷','新宿','銀座','恵比寿','表参道','原宿','六本木','池袋','品川','上野','秋葉原','吉祥寺','中目黒','自由が丘','代官山'],
+    '神奈川': ['横浜','川崎','藤沢','鎌倉','相模原'],
+  },
+  '関西': {
+    '大阪': ['梅田','難波','心斎橋','天王寺','堺'],
+    '京都': ['京都市'],
+    '兵庫': ['神戸','三宮'],
+  },
+  '東海': {
+    '愛知': ['名古屋','栄','金山'],
+  },
+  '九州': {
+    '福岡': ['博多','天神','小倉'],
+  },
+  '北海道': {
+    '北海道': ['札幌','すすきの'],
+  },
+  '東北': {
+    '宮城': ['仙台'],
+  },
+  '中国': {
+    '広島': ['広島市'],
+  },
+}
 
 export default function HomePage() {
   const [profile, setProfile] = useState<any>(null)
   const [salons, setSalons] = useState<any[]>([])
   const [search, setSearch] = useState('')
-  const [area, setArea] = useState('')
+  const [selectedRegion, setSelectedRegion] = useState('')
+  const [selectedPref, setSelectedPref] = useState('')
+  const [selectedArea, setSelectedArea] = useState('')
   const [genre, setGenre] = useState('ヘアサロン')
   const [user, setUser] = useState<any>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
+  const [showAreaPanel, setShowAreaPanel] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -34,15 +62,14 @@ export default function HomePage() {
         if (prof?.role === 'salon') router.push('/dashboard')
       }
     })
-    fetchSalons()
   }, [])
 
-  useEffect(() => { fetchSalons() }, [search, area, genre])
+  useEffect(() => { fetchSalons() }, [search, selectedArea, genre])
 
   const fetchSalons = async () => {
     let query = supabase.from('salons').select('*').eq('is_active', true)
     if (search) query = query.ilike('name', `%${search}%`)
-    if (area) query = query.eq('area', area)
+    if (selectedArea) query = query.eq('area', selectedArea)
     if (genre) query = query.eq('genre', genre)
     const { data } = await query.order('created_at', { ascending: false })
     setSalons(data || [])
@@ -70,6 +97,18 @@ export default function HomePage() {
     setProfile(null)
   }
 
+  const selectArea = (area: string) => {
+    setSelectedArea(area)
+    setShowAreaPanel(false)
+  }
+
+  const clearArea = () => {
+    setSelectedRegion('')
+    setSelectedPref('')
+    setSelectedArea('')
+    setShowAreaPanel(false)
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
 
@@ -92,9 +131,7 @@ export default function HomePage() {
             {GENRES.map(g => (
               <button key={g.key} onClick={() => setGenre(g.key)}
                 className={`px-6 py-3 text-sm font-bold transition border-b-2 ${
-                  genre === g.key
-                    ? 'border-white text-white'
-                    : 'border-transparent text-pink-200 hover:text-white'
+                  genre === g.key ? 'border-white text-white' : 'border-transparent text-pink-200 hover:text-white'
                 }`}>
                 {g.icon} {g.label}
               </button>
@@ -108,12 +145,87 @@ export default function HomePage() {
         {/* メインコンテンツ */}
         <div className="flex-1">
 
-          {/* 検索バー */}
+          {/* エリアパネル */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <h2 className="font-bold text-lg mb-3">
-              {GENRES.find(g => g.key === genre)?.icon} {genre}を探す
-            </h2>
-            <div className="flex gap-2 mb-3">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-bold text-base">📍 エリアから探す</h2>
+              {selectedArea && (
+                <button onClick={clearArea} className="text-xs text-gray-400 hover:text-gray-600">
+                  ✕ クリア
+                </button>
+              )}
+            </div>
+
+            {/* 地方ボタン */}
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              {Object.keys(REGIONS).map(region => (
+                <button key={region}
+                  onClick={() => {
+                    setSelectedRegion(region === selectedRegion ? '' : region)
+                    setSelectedPref('')
+                    setShowAreaPanel(region !== selectedRegion)
+                  }}
+                  className={`py-2 px-3 rounded text-sm font-bold border transition ${
+                    selectedRegion === region
+                      ? 'bg-pink-600 text-white border-pink-600'
+                      : 'border-gray-200 text-gray-600 hover:border-pink-400 hover:text-pink-600'
+                  }`}>
+                  {region}
+                </button>
+              ))}
+            </div>
+
+            {/* 都道府県・エリア選択 */}
+            {selectedRegion && REGIONS[selectedRegion] && (
+              <div className="border-t pt-3">
+                {/* 都道府県タブ */}
+                <div className="flex gap-2 mb-3 flex-wrap">
+                  {Object.keys(REGIONS[selectedRegion]).map(pref => (
+                    <button key={pref}
+                      onClick={() => setSelectedPref(pref)}
+                      className={`px-3 py-1 rounded-full text-xs font-bold border transition ${
+                        selectedPref === pref
+                          ? 'bg-pink-100 text-pink-600 border-pink-400'
+                          : 'border-gray-200 text-gray-500 hover:border-pink-300'
+                      }`}>
+                      {pref}
+                    </button>
+                  ))}
+                </div>
+
+                {/* エリアボタン */}
+                {selectedPref && REGIONS[selectedRegion][selectedPref] && (
+                  <div className="flex flex-wrap gap-2">
+                    {REGIONS[selectedRegion][selectedPref].map(area => (
+                      <button key={area}
+                        onClick={() => selectArea(area)}
+                        className={`px-3 py-1 rounded-full text-xs border transition ${
+                          selectedArea === area
+                            ? 'bg-pink-600 text-white border-pink-600'
+                            : 'border-gray-200 text-gray-500 hover:border-pink-400 hover:text-pink-600'
+                        }`}>
+                        {area}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 選択中のエリア表示 */}
+            {selectedArea && (
+              <div className="mt-3 flex items-center gap-2">
+                <span className="text-xs text-gray-500">選択中：</span>
+                <span className="bg-pink-600 text-white text-xs px-3 py-1 rounded-full font-bold">
+                  📍 {selectedArea}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* キーワード検索 */}
+          <div className="bg-white rounded-lg shadow p-4 mb-4">
+            <div className="flex gap-2">
               <input
                 placeholder="サロン名・キーワードで検索"
                 value={search}
@@ -125,23 +237,15 @@ export default function HomePage() {
                 検索
               </button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button onClick={() => setArea('')}
-                className={`text-xs px-3 py-1 rounded-full border transition ${!area ? 'bg-pink-600 text-white border-pink-600' : 'border-gray-300 text-gray-600'}`}>
-                すべて
-              </button>
-              {AREAS.map(a => (
-                <button key={a} onClick={() => setArea(a)}
-                  className={`text-xs px-3 py-1 rounded-full border transition ${area === a ? 'bg-pink-600 text-white border-pink-600' : 'border-gray-300 text-gray-600 hover:border-pink-400'}`}>
-                  {a}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* サロン一覧 */}
           <div className="mb-2 flex justify-between items-center">
-            <p className="text-sm text-gray-600"><span className="font-bold text-gray-900">{salons.length}件</span>のサロンが見つかりました</p>
+            <p className="text-sm text-gray-600">
+              <span className="font-bold text-gray-900">{salons.length}件</span>
+              {selectedArea && <span className="text-pink-600 ml-1">/ {selectedArea}</span>}
+              のサロンが見つかりました
+            </p>
             <select className="text-xs border rounded p-1 text-gray-600">
               <option>おすすめ順</option>
               <option>新着順</option>
@@ -158,7 +262,6 @@ export default function HomePage() {
               {salons.map(salon => (
                 <Link key={salon.id} href={`/salons/${salon.id}`}>
                   <div className="bg-white rounded-lg shadow hover:shadow-md transition flex overflow-hidden mb-3">
-                    {/* サムネイル */}
                     <div className="w-40 h-32 flex-shrink-0 bg-pink-100 flex items-center justify-center overflow-hidden">
                       {salon.top_image
                         ? <img src={salon.top_image} alt="" className="w-full h-full object-cover" />
@@ -166,7 +269,6 @@ export default function HomePage() {
                             {salon.genre === 'ヘアサロン' ? '✂️' : salon.genre === 'ネイル・まつげ' ? '💅' : '💆'}
                           </span>}
                     </div>
-                    {/* 情報 */}
                     <div className="p-4 flex-1">
                       <div className="flex items-start justify-between">
                         <div>
@@ -174,9 +276,6 @@ export default function HomePage() {
                           <h3 className="font-bold text-base mt-1">{salon.name}</h3>
                           <p className="text-xs text-gray-500 mt-1">📍 {salon.area}　{salon.address}</p>
                           {salon.nearest_station && <p className="text-xs text-gray-400">🚃 {salon.nearest_station}駅近</p>}
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xs text-gray-400">⭐ 新着</div>
                         </div>
                       </div>
                       {salon.description && (
@@ -238,19 +337,7 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* エリアから探す（イメージ） */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm font-bold mb-3">エリアから探す</p>
-            <div className="grid grid-cols-2 gap-1">
-              {['関東', '関西', '東海', '北海道', '東北', '九州'].map(r => (
-                <button key={r} className="text-xs border border-gray-200 rounded p-2 text-gray-600 hover:border-pink-400 hover:text-pink-600 transition">
-                  {r}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* おすすめ特集（イメージ） */}
+          {/* おすすめ特集 */}
           <div className="bg-white rounded-lg shadow p-4">
             <p className="text-sm font-bold mb-3">✨ 特集・キャンペーン</p>
             <div className="space-y-2">
