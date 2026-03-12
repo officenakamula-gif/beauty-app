@@ -128,7 +128,7 @@ export default function MyPage() {
                                     </span>
                                 </div>
                                 <p className="font-bold">{res.salons?.name}</p>
-                                <p className="text-xs text-gray-400 mt-0.5">
+                                <p className="text-sm text-gray-600 mt-0.5 font-bold">
                                     📅 {new Date(res.reserved_at).toLocaleString('ja-JP')}
                                 </p>
                                 <p className="text-sm text-gray-600 mt-1">{res.menus?.name}</p>
