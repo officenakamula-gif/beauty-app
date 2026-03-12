@@ -43,14 +43,12 @@ export default function DashboardPage() {
     name: '', genre: 'ヘアサロン', prefecture: '北海道', area: '札幌市中央区',
     address: '', nearest_station: '', description: '', phone: '', slot_interval: 30
   })
-  const [menuForm, setMenuForm] = useState({ name: '', price: '', duration: '' })
+  const [menuForm, setMenuForm] = useState({ name: '', price: '', duration: '', description: '' })
   const [stylistForm, setStylistForm] = useState({
     name: '', role: '', experience_years: '', description: '', instagram: ''
   })
   const [stylistImageFile, setStylistImageFile] = useState<File | null>(null)
   const [stylistImagePreview, setStylistImagePreview] = useState('')
-
-  // Schedule management
   const [editingScheduleStylistId, setEditingScheduleStylistId] = useState<string | null>(null)
   const [scheduleForm, setScheduleForm] = useState<any[]>([])
   const [scheduleSaving, setScheduleSaving] = useState(false)
@@ -160,13 +158,16 @@ export default function DashboardPage() {
 
   const addMenu = async () => {
     if (!salon) { alert('先にサロン情報を保存してください'); return }
-    if (!menuForm.name || !menuForm.price || !menuForm.duration) { alert('全項目入力してください'); return }
+    if (!menuForm.name || !menuForm.price || !menuForm.duration) { alert('名前・料金・時間は必須です'); return }
     const { error } = await supabase.from('menus').insert({
-      salon_id: salon.id, name: menuForm.name,
-      price: parseInt(menuForm.price), duration: parseInt(menuForm.duration)
+      salon_id: salon.id,
+      name: menuForm.name,
+      price: parseInt(menuForm.price),
+      duration: parseInt(menuForm.duration),
+      description: menuForm.description || null,
     })
     if (error) { alert('エラー: ' + error.message); return }
-    setMenuForm({ name: '', price: '', duration: '' })
+    setMenuForm({ name: '', price: '', duration: '', description: '' })
     const { data } = await supabase.from('menus').select('*').eq('salon_id', salon.id)
     setMenus(data || [])
   }
@@ -258,7 +259,10 @@ export default function DashboardPage() {
     cancelled: 'bg-red-100 text-red-700', completed: 'bg-gray-100 text-gray-600',
     expired: 'bg-gray-100 text-gray-400'
   }
-  const statusLabel: any = { pending: '未確認', confirmed: '確認済', cancelled: 'キャンセル', completed: '完了', expired: 'タイムアウト' }
+  const statusLabel: any = {
+    pending: '未確認', confirmed: '確認済', cancelled: 'キャンセル',
+    completed: '完了', expired: 'タイムアウト'
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -329,7 +333,6 @@ export default function DashboardPage() {
 
             <div className="bg-white rounded-xl shadow p-4">
               <h2 className="font-bold text-lg mb-4">サロン情報の{salon ? '編集' : '登録'}</h2>
-
               <div className="mb-3">
                 <label className="text-xs font-bold text-gray-600">サロン名 *</label>
                 <input value={salonForm.name} onChange={e => setSalonForm({ ...salonForm, name: e.target.value })}
@@ -379,7 +382,8 @@ export default function DashboardPage() {
               ))}
               <div className="mb-3">
                 <label className="text-xs font-bold text-gray-600">説明文</label>
-                <textarea value={salonForm.description} onChange={e => setSalonForm({ ...salonForm, description: e.target.value })}
+                <textarea value={salonForm.description}
+                  onChange={e => setSalonForm({ ...salonForm, description: e.target.value })}
                   placeholder="サロンの特徴・アピールポイント..."
                   className="w-full border rounded-lg p-2 mt-1 text-sm h-24 resize-none" />
               </div>
@@ -407,15 +411,19 @@ export default function DashboardPage() {
             <div className="bg-white rounded-xl shadow p-4 mb-4">
               <h2 className="font-bold text-lg mb-3">メニューを追加</h2>
               <input value={menuForm.name} onChange={e => setMenuForm({ ...menuForm, name: e.target.value })}
-                placeholder="メニュー名（例：カット＋カラー）" className="w-full border rounded-lg p-2 mb-2 text-sm" />
+                placeholder="メニュー名（例：カット＋カラー）*" className="w-full border rounded-lg p-2 mb-2 text-sm" />
+              <textarea value={menuForm.description}
+                onChange={e => setMenuForm({ ...menuForm, description: e.target.value })}
+                placeholder="メニューの説明（例：シャンプー・ブロー込み。髪質に合わせたカラーをご提案します）"
+                className="w-full border rounded-lg p-2 mb-2 text-sm h-16 resize-none" />
               <div className="flex gap-2 mb-3">
                 <div className="flex-1">
-                  <label className="text-xs text-gray-500">料金（円）</label>
+                  <label className="text-xs text-gray-500">料金（円）*</label>
                   <input value={menuForm.price} onChange={e => setMenuForm({ ...menuForm, price: e.target.value })}
                     placeholder="5000" type="number" className="w-full border rounded-lg p-2 text-sm" />
                 </div>
                 <div className="flex-1">
-                  <label className="text-xs text-gray-500">所要時間（分）</label>
+                  <label className="text-xs text-gray-500">所要時間（分）*</label>
                   <input value={menuForm.duration} onChange={e => setMenuForm({ ...menuForm, duration: e.target.value })}
                     placeholder="60" type="number" className="w-full border rounded-lg p-2 text-sm" />
                 </div>
@@ -427,12 +435,13 @@ export default function DashboardPage() {
               {menus.length === 0
                 ? <p className="text-gray-400 text-sm text-center py-4">メニューがまだありません</p>
                 : menus.map(menu => (
-                  <div key={menu.id} className="flex justify-between items-center p-3 border rounded-lg mb-2">
-                    <div>
+                  <div key={menu.id} className="flex justify-between items-start p-3 border rounded-lg mb-2">
+                    <div className="flex-1">
                       <p className="font-bold text-sm">{menu.name}</p>
-                      <p className="text-xs text-gray-500">¥{menu.price.toLocaleString()} / {menu.duration}分</p>
+                      {menu.description && <p className="text-xs text-gray-400 mt-0.5">{menu.description}</p>}
+                      <p className="text-xs text-gray-500 mt-1">¥{menu.price.toLocaleString()} / {menu.duration}分</p>
                     </div>
-                    <button onClick={() => deleteMenu(menu.id)} className="text-red-400 text-xs px-2 py-1 border border-red-200 rounded">削除</button>
+                    <button onClick={() => deleteMenu(menu.id)} className="text-red-400 text-xs px-2 py-1 border border-red-200 rounded ml-2 flex-shrink-0">削除</button>
                   </div>
                 ))}
             </div>
@@ -502,7 +511,6 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* スケジュールエディター */}
                     {editingScheduleStylistId === s.id && (
                       <div className="border-t bg-gray-50 p-4">
                         <p className="text-sm font-bold mb-3">📅 稼働スケジュール設定</p>
