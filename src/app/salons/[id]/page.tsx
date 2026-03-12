@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
 import BlockButton from '@/components/BlockButton'
 import { sendEmail, emailTemplates } from '@/lib/email'
-import { DAY_NAMES, getAvailableSlots, toJSTDateStr } from '@/lib/availability'
+import { DAY_NAMES, getAvailableSlots, toJSTDateStr, generateSlots } from '@/lib/availability'
 
 export default function SalonDetailPage() {
   const { id } = useParams() as { id: string }
@@ -156,6 +156,37 @@ export default function SalonDetailPage() {
     if (!selectedDate || !selectedMenu) return []
     return getDateSlots(selectedDate)
   }, [selectedDate, schedules, reservations, selectedMenu, selectedStylist, stylists, salon])
+
+  const allTimeSlots = useMemo(() => {
+    if (!selectedDate || !selectedMenu) return []
+    const interval = salon?.slot_interval || 30
+    if (selectedStylist) {
+      const schedule = getScheduleForDate(selectedDate, selectedStylist.id)
+      if (!schedule || schedule.is_day_off) return []
+      const [eh, em] = schedule.end_time.split(':').map(Number)
+      const workEnd = eh * 60 + em
+      const duration = selectedMenu.duration
+      return generateSlots(schedule.start_time, schedule.end_time, interval).filter(slot => {
+        const [sh, sm] = slot.split(':').map(Number)
+        return sh * 60 + sm + duration <= workEnd
+      })
+    } else {
+      if (stylists.length === 0) return generateSlots('10:00', '19:00', interval)
+      const allSlots = new Set<string>()
+      stylists.forEach(s => {
+        const schedule = getScheduleForDate(selectedDate, s.id)
+        if (!schedule || schedule.is_day_off) return
+        const [eh, em] = schedule.end_time.split(':').map(Number)
+        const workEnd = eh * 60 + em
+        const duration = selectedMenu.duration
+        generateSlots(schedule.start_time, schedule.end_time, interval).forEach(slot => {
+          const [sh, sm] = slot.split(':').map(Number)
+          if (sh * 60 + sm + duration <= workEnd) allSlots.add(slot)
+        })
+      })
+      return Array.from(allSlots).sort()
+    }
+  }, [selectedDate, schedules, selectedMenu, selectedStylist, stylists, salon])
 
   const makeReservation = async () => {
     if (!user) { router.push('/auth'); return }
@@ -365,6 +396,7 @@ export default function SalonDetailPage() {
                   <div className="text-center py-12 text-gray-400">空き枠を確認中...</div>
                 ) : (
                   <>
+                    {/* カレンダー */}
                     <div className="bg-white rounded-xl shadow p-4 mb-4">
                       <div className="flex items-center justify-between mb-4">
                         <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
@@ -409,25 +441,47 @@ export default function SalonDetailPage() {
                       </div>
                     </div>
 
+                    {/* 時間スロット */}
                     {selectedDate && (
                       <div className="bg-white rounded-xl shadow p-4 mb-4">
-                        <h3 className="font-bold mb-3">
+                        <h3 className="font-bold mb-2">
                           🕐 {selectedDate.replace(/-/g, '/')} の空き時間
                         </h3>
-                        {timeSlots.length === 0 ? (
-                          <p className="text-sm text-gray-400">この日は空きがありません</p>
+
+                        {/* 凡例 */}
+                        <div className="flex gap-4 mb-3 text-xs text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <span className="inline-block w-4 h-4 rounded bg-green-100 border border-green-300"></span>
+                            空きあり
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span className="inline-block w-4 h-4 rounded bg-gray-100 border border-gray-200"></span>
+                            予約済み・受付不可
+                          </span>
+                        </div>
+
+                        {allTimeSlots.length === 0 ? (
+                          <p className="text-sm text-gray-400">この日は営業していません</p>
                         ) : (
                           <div className="grid grid-cols-4 gap-2">
-                            {timeSlots.map(slot => (
-                              <button key={slot} onClick={() => setSelectedTime(slot)}
-                                className={`py-2 rounded-lg text-sm font-bold border transition ${
-                                  selectedTime === slot
-                                    ? 'bg-pink-500 text-white border-pink-500'
-                                    : 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
-                                }`}>
-                                {slot}
-                              </button>
-                            ))}
+                            {allTimeSlots.map(slot => {
+                              const available = timeSlots.includes(slot)
+                              const isSelected = selectedTime === slot
+                              return (
+                                <button key={slot}
+                                  onClick={() => available && setSelectedTime(slot)}
+                                  disabled={!available}
+                                  className={`py-2 rounded-lg text-sm font-bold border transition ${
+                                    isSelected
+                                      ? 'bg-pink-500 text-white border-pink-500'
+                                      : available
+                                        ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
+                                        : 'border-gray-200 text-gray-300 bg-gray-50 cursor-not-allowed'
+                                  }`}>
+                                  {slot}
+                                </button>
+                              )
+                            })}
                           </div>
                         )}
                       </div>

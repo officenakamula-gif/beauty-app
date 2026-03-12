@@ -19,7 +19,7 @@ export default function MyPage() {
     setUser(user)
     const { data } = await supabase
       .from('reservations')
-      .select('*, salons(name, area), menus(name, price)')
+      .select('*, salons(name, area), menus(name, price), stylists(name)')
       .eq('user_id', user.id)
       .order('reserved_at', { ascending: false })
     setReservations(data || [])
@@ -62,7 +62,10 @@ export default function MyPage() {
         📅 {new Date(res.reserved_at).toLocaleString('ja-JP')}
       </p>
       <p className="text-sm text-gray-600 mt-1">{res.menus?.name}</p>
-      <p className="text-base text-pink-600 font-bold">¥{res.menus?.price?.toLocaleString()}</p>
+      {res.stylists?.name && (
+        <p className="text-sm text-gray-500">✂️ 担当：{res.stylists.name}</p>
+      )}
+      <p className="text-base text-pink-600 font-bold mt-1">¥{res.menus?.price?.toLocaleString()}</p>
 
       {!isPast && res.status === 'pending' && (
         <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
