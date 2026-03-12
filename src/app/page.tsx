@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { REGIONS } from '@/lib/areas'
 
 const GENRES = [
   { key: 'ヘアサロン', label: 'ヘアサロン', icon: '✂️' },
@@ -11,32 +12,6 @@ const GENRES = [
   { key: 'リラク・エステ', label: 'リラク・エステ', icon: '💆' },
 ]
 
-const REGIONS: Record<string, Record<string, string[]>> = {
-  '関東': {
-    '東京': ['渋谷','新宿','銀座','恵比寿','表参道','原宿','六本木','池袋','品川','上野','秋葉原','吉祥寺','中目黒','自由が丘','代官山'],
-    '神奈川': ['横浜','川崎','藤沢','鎌倉','相模原'],
-  },
-  '関西': {
-    '大阪': ['梅田','難波','心斎橋','天王寺','堺'],
-    '京都': ['京都市'],
-    '兵庫': ['神戸','三宮'],
-  },
-  '東海': {
-    '愛知': ['名古屋','栄','金山'],
-  },
-  '九州': {
-    '福岡': ['博多','天神','小倉'],
-  },
-  '北海道': {
-    '北海道': ['札幌','すすきの'],
-  },
-  '東北': {
-    '宮城': ['仙台'],
-  },
-  '中国': {
-    '広島': ['広島市'],
-  },
-}
 
 export default function HomePage() {
   const [profile, setProfile] = useState<any>(null)
