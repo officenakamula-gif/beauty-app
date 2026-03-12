@@ -4,6 +4,7 @@ import { sendEmail, emailTemplates } from '@/lib/email'
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { REGIONS } from '@/lib/areas'
 
 const AREAS: Record<string, string[]> = {
     '東京': ['渋谷', '新宿', '銀座', '恵比寿', '表参道', '原宿', '六本木', '池袋', '品川', '上野', '秋葉原', '吉祥寺', '中目黒', '自由が丘', '代官山'],
@@ -57,7 +58,9 @@ export default function DashboardPage() {
         const { data: salonData } = await supabase.from('salons').select('*').eq('owner_id', user.id).maybeSingle()
         if (salonData) {
             setSalon(salonData)
-            const pref = Object.keys(AREAS).find(p => AREAS[p].includes(salonData.area)) || '東京'
+            const pref = Object.keys(REGIONS).flatMap(r =>
+                Object.keys(REGIONS[r])
+            ).find(p => REGIONS[p] && REGIONS[p] === salonData.area) || '東京'
             setSalonForm({
                 name: salonData.name || '',
                 genre: salonData.genre || 'ヘアサロン',
@@ -330,14 +333,22 @@ export default function DashboardPage() {
                                 <select value={salonForm.prefecture}
                                     onChange={e => setSalonForm({ ...salonForm, prefecture: e.target.value, area: AREAS[e.target.value][0] })}
                                     className="w-full border rounded-lg p-2 mt-1 text-sm">
-                                    {Object.keys(AREAS).map(p => <option key={p} value={p}>{p}</option>)}
+                                    {Object.keys(REGIONS).map(region => (
+                                        <optgroup key={region} label={region}>
+                                            {Object.keys(REGIONS[region]).map(p => (
+                                                <option key={p} value={p}>{p}</option>
+                                            ))}
+                                        </optgroup>
+                                    ))}
                                 </select>
                             </div>
                             <div className="mb-3">
                                 <label className="text-xs font-bold text-gray-600">エリア *</label>
                                 <select value={salonForm.area} onChange={e => setSalonForm({ ...salonForm, area: e.target.value })}
                                     className="w-full border rounded-lg p-2 mt-1 text-sm">
-                                    {AREAS[salonForm.prefecture].map(a => <option key={a} value={a}>{a}</option>)}
+                                    {Object.values(REGIONS).flatMap(prefs =>
+                                        prefs[salonForm.prefecture] || []
+                                    ).map(a => <option key={a} value={a}>{a}</option>)}
                                 </select>
                             </div>
                             {[
