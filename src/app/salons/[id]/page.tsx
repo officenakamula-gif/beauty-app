@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
 import BlockButton from '@/components/BlockButton'
 import { sendEmail, emailTemplates } from '@/lib/email'
-import { DAY_NAMES, getAvailableSlots, toJSTDateStr, generateSlots } from '@/lib/availability'
+import { DAY_NAMES, getAvailableSlots, getAllSlots, toJSTDateStr, generateSlots } from '@/lib/availability'
 
 export default function SalonDetailPage() {
   const { id } = useParams() as { id: string }
@@ -19,6 +19,7 @@ export default function SalonDetailPage() {
 
   const [step, setStep] = useState(1)
   const [selectedMenu, setSelectedMenu] = useState<any>(null)
+  // null = 指名なし（フリー枠）, stylist object = 指名あり
   const [selectedStylist, setSelectedStylist] = useState<any>(null)
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState('')
@@ -54,10 +55,12 @@ export default function SalonDetailPage() {
       const { data: resData } = await supabase.from('reservations')
         .select('*, menus(duration)')
         .eq('stylist_id', stylistId)
+        .not('status', 'in', '("cancelled","expired")')
         .gte('reserved_at', now.toISOString())
         .lte('reserved_at', future.toISOString())
       setReservations(resData || [])
     } else {
+      // 指名なし：全スタイリストのスケジュール＋指名なし予約を取得
       const stylistIds = stylists.map(s => s.id)
       if (stylistIds.length > 0) {
         const { data: schData } = await supabase.from('stylist_schedules').select('*').in('stylist_id', stylistIds)
@@ -68,6 +71,8 @@ export default function SalonDetailPage() {
       const { data: resData } = await supabase.from('reservations')
         .select('*, menus(duration)')
         .eq('salon_id', id)
+        .is('stylist_id', null)  // 指名なし予約のみ
+        .not('status', 'in', '("cancelled","expired")')
         .gte('reserved_at', now.toISOString())
         .lte('reserved_at', future.toISOString())
       setReservations(resData || [])
@@ -86,25 +91,21 @@ export default function SalonDetailPage() {
   const getScheduleForDate = (date: string, stylistId: string): any => {
     const dow = new Date(date + 'T12:00:00+09:00').getDay()
     return schedules.find(s => s.stylist_id === stylistId && s.day_of_week === dow) || null
+    // ①対応：nullを返してもavailability.tsのDEFAULT_SCHEDULEで処理される
   }
 
   const getDateAvailable = (date: string): boolean => {
     if (!selectedMenu) return false
     const interval = salon?.slot_interval || 30
     const duration = selectedMenu.duration
+
     if (selectedStylist) {
       const schedule = getScheduleForDate(date, selectedStylist.id)
       const stylistRes = reservations.filter(r => r.stylist_id === selectedStylist.id)
       return getAvailableSlots(date, schedule, duration, stylistRes, interval).length > 0
     } else {
-      if (stylists.length === 0) {
-        return getAvailableSlots(date, null, duration, reservations, interval).length > 0
-      }
-      return stylists.some(s => {
-        const schedule = getScheduleForDate(date, s.id)
-        const stylistRes = reservations.filter(r => r.stylist_id === s.id)
-        return getAvailableSlots(date, schedule, duration, stylistRes, interval).length > 0
-      })
+      // 指名なし：フリー枠として判定
+      return getAvailableSlots(date, null, duration, reservations, interval).length > 0
     }
   }
 
@@ -112,21 +113,26 @@ export default function SalonDetailPage() {
     if (!selectedMenu) return []
     const interval = salon?.slot_interval || 30
     const duration = selectedMenu.duration
+
     if (selectedStylist) {
       const schedule = getScheduleForDate(date, selectedStylist.id)
       const stylistRes = reservations.filter(r => r.stylist_id === selectedStylist.id)
       return getAvailableSlots(date, schedule, duration, stylistRes, interval)
     } else {
-      if (stylists.length === 0) {
-        return getAvailableSlots(date, null, duration, reservations, interval)
-      }
-      const allSlots = new Set<string>()
-      stylists.forEach(s => {
-        const schedule = getScheduleForDate(date, s.id)
-        const stylistRes = reservations.filter(r => r.stylist_id === s.id)
-        getAvailableSlots(date, schedule, duration, stylistRes, interval).forEach(slot => allSlots.add(slot))
-      })
-      return Array.from(allSlots).sort()
+      return getAvailableSlots(date, null, duration, reservations, interval)
+    }
+  }
+
+  const getDateAllSlots = (date: string): string[] => {
+    if (!selectedMenu) return []
+    const interval = salon?.slot_interval || 30
+    const duration = selectedMenu.duration
+
+    if (selectedStylist) {
+      const schedule = getScheduleForDate(date, selectedStylist.id)
+      return getAllSlots(date, schedule, duration, interval)
+    } else {
+      return getAllSlots(date, null, duration, interval)
     }
   }
 
@@ -155,42 +161,27 @@ export default function SalonDetailPage() {
   const timeSlots = useMemo(() => {
     if (!selectedDate || !selectedMenu) return []
     return getDateSlots(selectedDate)
-  }, [selectedDate, schedules, reservations, selectedMenu, selectedStylist, stylists, salon])
+  }, [selectedDate, schedules, reservations, selectedMenu, selectedStylist, salon])
 
   const allTimeSlots = useMemo(() => {
     if (!selectedDate || !selectedMenu) return []
-    const interval = salon?.slot_interval || 30
-    if (selectedStylist) {
-      const schedule = getScheduleForDate(selectedDate, selectedStylist.id)
-      if (!schedule || schedule.is_day_off) return []
-      const [eh, em] = schedule.end_time.split(':').map(Number)
-      const workEnd = eh * 60 + em
-      const duration = selectedMenu.duration
-      return generateSlots(schedule.start_time, schedule.end_time, interval).filter(slot => {
-        const [sh, sm] = slot.split(':').map(Number)
-        return sh * 60 + sm + duration <= workEnd
-      })
-    } else {
-      if (stylists.length === 0) return generateSlots('10:00', '19:00', interval)
-      const allSlots = new Set<string>()
-      stylists.forEach(s => {
-        const schedule = getScheduleForDate(selectedDate, s.id)
-        if (!schedule || schedule.is_day_off) return
-        const [eh, em] = schedule.end_time.split(':').map(Number)
-        const workEnd = eh * 60 + em
-        const duration = selectedMenu.duration
-        generateSlots(schedule.start_time, schedule.end_time, interval).forEach(slot => {
-          const [sh, sm] = slot.split(':').map(Number)
-          if (sh * 60 + sm + duration <= workEnd) allSlots.add(slot)
-        })
-      })
-      return Array.from(allSlots).sort()
-    }
-  }, [selectedDate, schedules, selectedMenu, selectedStylist, stylists, salon])
+    return getDateAllSlots(selectedDate)
+  }, [selectedDate, schedules, selectedMenu, selectedStylist, salon])
 
   const makeReservation = async () => {
     if (!user) { router.push('/auth'); return }
     setBookingLoading(true)
+
+    // ③再チェック：送信直前にも12時間チェック
+    const slotDate = new Date(`${selectedDate}T${selectedTime}:00+09:00`)
+    const now = new Date()
+    const diffHours = (slotDate.getTime() - now.getTime()) / (1000 * 60 * 60)
+    if (diffHours < 12) {
+      alert('この時間帯は受付終了しました（12時間前以降は予約できません）')
+      setBookingLoading(false)
+      return
+    }
+
     const reservedAt = `${selectedDate}T${selectedTime}:00+09:00`
     const { error } = await supabase.from('reservations').insert({
       user_id: user.id,
@@ -305,6 +296,16 @@ export default function SalonDetailPage() {
         {/* 予約フロー */}
         {infoTab === 'booking' && (
           <div>
+            {/* ログイン案内 */}
+            {!user && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4">
+                <p className="text-sm text-yellow-700">
+                  ⚠️ 予約にはログインが必要です。
+                  <button onClick={() => router.push('/auth')} className="underline font-bold ml-1">ログインする</button>
+                </p>
+              </div>
+            )}
+
             {/* ステップインジケーター */}
             <div className="flex items-center mb-6">
               {[
@@ -355,31 +356,39 @@ export default function SalonDetailPage() {
                 <h3 className="font-bold text-lg mb-1">✂️ スタイリストを指名</h3>
                 <p className="text-xs text-gray-400 mb-3">選択メニュー：{selectedMenu?.name}（約{selectedMenu?.duration}分）</p>
 
+                {/* 指名フリー枠 */}
                 <div onClick={() => handleStylistSelect(null)}
-                  className="p-4 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer mb-3 hover:border-pink-400 bg-white transition flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center text-2xl">👤</div>
+                  className="p-4 border-2 border-dashed border-pink-200 rounded-xl cursor-pointer mb-3 hover:border-pink-400 bg-pink-50 transition flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-full bg-white border-2 border-pink-200 flex items-center justify-center text-2xl">👤</div>
                   <div>
-                    <p className="font-bold">指名なし</p>
-                    <p className="text-xs text-gray-400">サロンにお任せします</p>
+                    <p className="font-bold">指名なし（フリー枠）</p>
+                    <p className="text-xs text-gray-500">サロンにお任せします</p>
+                    <p className="text-xs text-pink-400 mt-0.5">空き枠が最も多く取りやすいです</p>
                   </div>
                 </div>
 
-                {stylists.map(s => (
-                  <div key={s.id} onClick={() => handleStylistSelect(s)}
-                    className="p-4 border-2 border-gray-100 rounded-xl cursor-pointer mb-2 hover:border-pink-400 bg-white transition flex items-center gap-3">
-                    <div className="w-14 h-14 rounded-full bg-pink-100 overflow-hidden flex-shrink-0">
-                      {s.image_url
-                        ? <img src={s.image_url} alt="" className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center text-2xl">✂️</div>}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-bold">{s.name}</p>
-                      {s.role && <p className="text-xs text-pink-500">{s.role}</p>}
-                      {s.experience_years && <p className="text-xs text-gray-400">経験{s.experience_years}年</p>}
-                      {s.description && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{s.description}</p>}
-                    </div>
-                  </div>
-                ))}
+                {/* スタイリスト指名 */}
+                {stylists.length > 0 && (
+                  <>
+                    <p className="text-xs text-gray-400 mb-2 font-bold">スタイリストを指名する</p>
+                    {stylists.map(s => (
+                      <div key={s.id} onClick={() => handleStylistSelect(s)}
+                        className="p-4 border-2 border-gray-100 rounded-xl cursor-pointer mb-2 hover:border-pink-400 bg-white transition flex items-center gap-3">
+                        <div className="w-14 h-14 rounded-full bg-pink-100 overflow-hidden flex-shrink-0">
+                          {s.image_url
+                            ? <img src={s.image_url} alt="" className="w-full h-full object-cover" />
+                            : <div className="w-full h-full flex items-center justify-center text-2xl">✂️</div>}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-bold">{s.name}</p>
+                          {s.role && <p className="text-xs text-pink-500">{s.role}</p>}
+                          {s.experience_years && <p className="text-xs text-gray-400">経験{s.experience_years}年</p>}
+                          {s.description && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{s.description}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
             )}
 
@@ -388,9 +397,10 @@ export default function SalonDetailPage() {
               <div>
                 <button onClick={() => setStep(2)} className="text-sm text-gray-400 mb-4 block">← 戻る</button>
                 <h3 className="font-bold text-lg mb-1">📅 日時を選ぶ</h3>
-                <p className="text-xs text-gray-400 mb-3">
-                  {selectedMenu?.name}　／　担当：{selectedStylist?.name || '指名なし'}
+                <p className="text-xs text-gray-400 mb-1">
+                  {selectedMenu?.name}　／　担当：{selectedStylist?.name || '指名なし（フリー枠）'}
                 </p>
+                <p className="text-xs text-orange-400 mb-3">⚠️ 予約は12時間前まで受け付けています</p>
 
                 {availabilityLoading ? (
                   <div className="text-center py-12 text-gray-400">空き枠を確認中...</div>
@@ -406,6 +416,16 @@ export default function SalonDetailPage() {
                         </span>
                         <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
                           className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500">▶</button>
+                      </div>
+
+                      {/* 凡例 */}
+                      <div className="flex gap-4 mb-2 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <span className="inline-block w-4 h-4 rounded bg-green-50 border border-green-200"></span>○ 空きあり
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="inline-block w-4 h-4 rounded bg-gray-50"></span>× 受付不可
+                        </span>
                       </div>
 
                       <div className="grid grid-cols-7 mb-1">
@@ -461,7 +481,7 @@ export default function SalonDetailPage() {
                         </div>
 
                         {allTimeSlots.length === 0 ? (
-                          <p className="text-sm text-gray-400">この日は営業していません</p>
+                          <p className="text-sm text-gray-400">この日は受付可能な時間帯がありません</p>
                         ) : (
                           <div className="grid grid-cols-4 gap-2">
                             {allTimeSlots.map(slot => {
@@ -507,7 +527,7 @@ export default function SalonDetailPage() {
                     { label: 'サロン', value: salon.name },
                     { label: 'メニュー', value: selectedMenu?.name },
                     { label: '所要時間', value: `約${selectedMenu?.duration}分` },
-                    { label: '担当', value: selectedStylist?.name || '指名なし' },
+                    { label: '担当', value: selectedStylist?.name || '指名なし（フリー枠）' },
                     { label: '日時', value: `${selectedDate.replace(/-/g, '/')} ${selectedTime}` },
                   ].map(row => (
                     <div key={row.label} className="flex justify-between py-2">
@@ -522,10 +542,11 @@ export default function SalonDetailPage() {
                 </div>
                 <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4">
                   <p className="text-xs text-yellow-700">⚠️ サロンの承認後に予約確定となります。3日以内に承認がない場合は自動キャンセルになります。</p>
+                  <p className="text-xs text-yellow-600 mt-1">予約状況はマイページでご確認いただけます。</p>
                 </div>
-                <button onClick={makeReservation} disabled={bookingLoading}
+                <button onClick={makeReservation} disabled={bookingLoading || !user}
                   className="w-full bg-pink-500 text-white py-4 rounded-xl font-bold text-lg disabled:opacity-50 transition">
-                  {bookingLoading ? '処理中...' : user ? '予約を申請する' : 'ログインして予約する'}
+                  {bookingLoading ? '処理中...' : user ? '予約を申請する' : 'ログインが必要です'}
                 </button>
               </div>
             )}
