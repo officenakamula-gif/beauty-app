@@ -5,7 +5,64 @@ import { supabase } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
 import BlockButton from '@/components/BlockButton'
 import { sendEmail, emailTemplates } from '@/lib/email'
-import { DAY_NAMES, getAvailableSlots, getAllSlots, toJSTDateStr, generateSlots } from '@/lib/availability'
+import { DAY_NAMES, getAvailableSlots, getAllSlots } from '@/lib/availability'
+import Link from 'next/link'
+
+// ─── 最近見たサロンをlocalStorageで管理 ───────────────────────────────
+const RECENT_KEY = 'recentSalons'
+const MAX_RECENT = 5
+
+function saveRecentSalon(salon: { id: string; name: string; area: string }) {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY)
+    const list: typeof salon[] = raw ? JSON.parse(raw) : []
+    const filtered = list.filter(s => s.id !== salon.id)
+    const next = [salon, ...filtered].slice(0, MAX_RECENT)
+    localStorage.setItem(RECENT_KEY, JSON.stringify(next))
+  } catch {}
+}
+
+function loadRecentSalons(): { id: string; name: string; area: string }[] {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch { return [] }
+}
+// ─────────────────────────────────────────────────────────────────────────
+
+// ─── スタイル定数 ─────────────────────────────────────────────────────
+const grad = 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)'
+const gradText: any = { background: grad, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }
+
+const card: any = {
+  background: 'white',
+  borderRadius: 12,
+  border: '1px solid #DBDBDB',
+  padding: '16px',
+  marginBottom: 12,
+}
+
+const sectionTitle: any = {
+  fontSize: 13,
+  fontWeight: 700,
+  color: '#262626',
+  paddingBottom: 10,
+  marginBottom: 12,
+  borderBottom: '1px solid #DBDBDB',
+}
+
+const inputStyle: any = {
+  width: '100%',
+  border: '1.5px solid #DBDBDB',
+  borderRadius: 10,
+  padding: '10px 14px',
+  fontSize: 13,
+  fontFamily: 'inherit',
+  outline: 'none',
+  color: '#111',
+  background: '#FAFAFA',
+}
+// ─────────────────────────────────────────────────────────────────────────
 
 export default function SalonDetailPage() {
   const { id } = useParams() as { id: string }
@@ -15,7 +72,9 @@ export default function SalonDetailPage() {
   const [menus, setMenus] = useState<any[]>([])
   const [stylists, setStylists] = useState<any[]>([])
   const [user, setUser] = useState<any>(null)
+  const [userProfile, setUserProfile] = useState<any>(null)
   const [infoTab, setInfoTab] = useState<'info' | 'booking' | 'stylists'>('info')
+  const [recentSalons, setRecentSalons] = useState<{ id: string; name: string; area: string }[]>([])
 
   const [step, setStep] = useState(1)
   const [selectedMenu, setSelectedMenu] = useState<any>(null)
@@ -28,30 +87,41 @@ export default function SalonDetailPage() {
   const [reservations, setReservations] = useState<any[]>([])
   const [availabilityLoading, setAvailabilityLoading] = useState(false)
   const [bookingLoading, setBookingLoading] = useState(false)
-
   const [isBlocked, setIsBlocked] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user))
+    supabase.auth.getUser().then(async ({ data }) => {
+      setUser(data.user)
+      if (data.user) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('full_name, display_name, username')
+          .eq('id', data.user.id)
+          .single()
+        setUserProfile(prof)
+      }
+    })
     fetchSalonData()
+    setRecentSalons(loadRecentSalons())
   }, [])
 
   const fetchSalonData = async () => {
     const { data: salonData } = await supabase.from('salons').select('*').eq('id', id).single()
-    setSalon(salonData)
+    if (salonData) {
+      setSalon(salonData)
+      // 最近見たサロンに保存
+      saveRecentSalon({ id: salonData.id, name: salonData.name, area: salonData.area || '' })
+      setRecentSalons(loadRecentSalons())
+    }
     const { data: menuData } = await supabase.from('menus').select('*').eq('salon_id', id).order('price')
     setMenus(menuData || [])
     const { data: stylistData } = await supabase.from('stylists').select('*').eq('salon_id', id).eq('is_active', true)
     setStylists(stylistData || [])
-    // ブロックチェック
     const { data: { user: currentUser } } = await supabase.auth.getUser()
     if (currentUser) {
       const { data: blockData } = await supabase
-        .from('blocks')
-        .select('id')
-        .eq('blocked_id', currentUser.id)
-        .eq('blocked_salon_id', id)
-        .maybeSingle()
+        .from('blocks').select('id')
+        .eq('blocked_id', currentUser.id).eq('blocked_salon_id', id).maybeSingle()
       setIsBlocked(!!blockData)
     }
   }
@@ -64,27 +134,20 @@ export default function SalonDetailPage() {
       const { data: schData } = await supabase.from('stylist_schedules').select('*').eq('stylist_id', stylistId)
       setSchedules(schData || [])
       const { data: resData } = await supabase.from('reservations')
-        .select('*, menus(duration)')
-        .eq('stylist_id', stylistId)
+        .select('*, menus(duration)').eq('stylist_id', stylistId)
         .not('status', 'in', '("cancelled","expired")')
-        .gte('reserved_at', now.toISOString())
-        .lte('reserved_at', future.toISOString())
+        .gte('reserved_at', now.toISOString()).lte('reserved_at', future.toISOString())
       setReservations(resData || [])
     } else {
       const stylistIds = stylists.map(s => s.id)
       if (stylistIds.length > 0) {
         const { data: schData } = await supabase.from('stylist_schedules').select('*').in('stylist_id', stylistIds)
         setSchedules(schData || [])
-      } else {
-        setSchedules([])
-      }
+      } else { setSchedules([]) }
       const { data: resData } = await supabase.from('reservations')
-        .select('*, menus(duration)')
-        .eq('salon_id', id)
-        .is('stylist_id', null)
+        .select('*, menus(duration)').eq('salon_id', id).is('stylist_id', null)
         .not('status', 'in', '("cancelled","expired")')
-        .gte('reserved_at', now.toISOString())
-        .lte('reserved_at', future.toISOString())
+        .gte('reserved_at', now.toISOString()).lte('reserved_at', future.toISOString())
       setReservations(resData || [])
     }
     setAvailabilityLoading(false)
@@ -162,7 +225,6 @@ export default function SalonDetailPage() {
     return days
   }, [currentMonth, schedules, reservations, selectedMenu, selectedStylist, stylists, salon])
 
-  // ⑥ 直近の空き日を自動検索
   const nearestAvailableDate = useMemo(() => {
     return calendarDays.find(d => !d.isEmpty && !d.isPast && d.available)?.date || ''
   }, [calendarDays])
@@ -178,10 +240,7 @@ export default function SalonDetailPage() {
   }, [selectedDate, schedules, selectedMenu, selectedStylist, salon])
 
   const makeReservation = async () => {
-    if (isBlocked) {
-      alert('このサロンへの予約はできません。')
-      return
-    }
+    if (isBlocked) { alert('このサロンへの予約はできません。'); return }
     if (!user) { router.push('/auth'); return }
     setBookingLoading(true)
     const slotDate = new Date(`${selectedDate}T${selectedTime}:00+09:00`)
@@ -199,11 +258,7 @@ export default function SalonDetailPage() {
       stylist_id: selectedStylist?.id || null,
       reserved_at: reservedAt,
     })
-    if (error) {
-      alert('予約失敗: ' + error.message)
-      setBookingLoading(false)
-      return
-    }
+    if (error) { alert('予約失敗: ' + error.message); setBookingLoading(false); return }
     const dateStr = `${selectedDate} ${selectedTime}`
     await sendEmail(
       user.email!,
@@ -222,361 +277,524 @@ export default function SalonDetailPage() {
   }
 
   if (!salon) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p className="text-gray-400">読み込み中...</p>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ color: '#737373', fontSize: 13 }}>読み込み中...</div>
     </div>
   )
 
+  // ユーザー表示名
+  const displayName = userProfile?.display_name || userProfile?.full_name || user?.email?.split('@')[0] || ''
+
+  // 右カラムのリンク
+  const rightLinks = [
+    { label: 'マイページトップ', href: '/mypage' },
+    { label: '予約履歴一覧', href: '/mypage' },
+    { label: 'プロフィール設定', href: '/mypage' },
+  ]
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header style={{ background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', padding: '0 16px', height: 52, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={() => router.back()} style={{ color: 'white', fontSize: 20, background: 'none', border: 'none', cursor: 'pointer' }}>←</button>
-        <h1 style={{ flex: 1, fontSize: 16, fontWeight: 700, color: 'white' }}>{salon.name}</h1>
-        <BlockButton salonId={id} />
+    <div style={{ minHeight: '100vh', background: '#FAFAFA', fontFamily: "'Noto Sans JP', sans-serif" }}>
+
+      {/* ── ヘッダー ── */}
+      <header style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 24px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Link href="/" style={{ fontSize: 18, fontWeight: 700, textDecoration: 'none', ...gradText }}>Salon de Beauty</Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {user ? (
+            <>
+              <Link href="/mypage" style={{ fontSize: 12, color: '#737373', textDecoration: 'none' }}>マイページ</Link>
+              <button onClick={() => router.back()} style={{ fontSize: 12, border: '1px solid #DBDBDB', background: 'none', padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: '#262626' }}>戻る</button>
+            </>
+          ) : (
+            <button onClick={() => router.push('/auth')} style={{ background: grad, color: 'white', border: 'none', padding: '6px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>ログイン</button>
+          )}
+        </div>
       </header>
 
-      <div className="bg-white p-4 border-b">
-        {salon.top_image
-          ? <img src={salon.top_image} alt={salon.name} className="w-full h-36 object-cover rounded-lg mb-3" />
-          : <div className="bg-pink-100 rounded-lg h-36 flex items-center justify-center text-5xl mb-3">💅</div>}
-        <h2 className="text-xl font-bold mb-1">{salon.name}</h2>
-        <div className="flex flex-wrap gap-x-4 text-sm text-gray-500">
-          <span>📍 {salon.area}　{salon.address}</span>
-          {salon.nearest_station && <span>🚃 {salon.nearest_station}駅近</span>}
-          {salon.phone && <span>📞 {salon.phone}</span>}
-        </div>
-      </div>
-
-      <div className="flex bg-white border-b">
-        {(['info', 'booking', 'stylists'] as const).map(t => (
-          <button key={t} onClick={() => { setInfoTab(t); if (t === 'booking') setStep(1) }}
-            className={`flex-1 py-3 text-sm font-bold transition ${infoTab === t ? 'border-b-2 border-pink-500 text-pink-500' : 'text-gray-400'}`}>
-            {t === 'info' ? 'サロン情報' : t === 'booking' ? '予約する' : 'スタイリスト'}
-          </button>
-        ))}
-      </div>
-
-      <div className="max-w-2xl mx-auto p-4">
-
-        {/* サロン情報 */}
-        {infoTab === 'info' && (
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl shadow p-4">
-              <h3 className="font-bold mb-2">サロンについて</h3>
-              <p className="text-sm text-gray-600">{salon.description || '説明文はまだありません'}</p>
-            </div>
-            {(salon.gallery_images || []).length > 0 && (
-              <div className="bg-white rounded-xl shadow p-4">
-                <h3 className="font-bold mb-3">📷 店内・サロン画像</h3>
-                <div className="grid grid-cols-3 gap-2">
-                  {salon.gallery_images.map((url: string, i: number) => (
-                    <img key={i} src={url} alt="" className="w-full h-24 object-cover rounded-lg" />
-                  ))}
-                </div>
-              </div>
-            )}
+      {/* ── ヒーロー画像グリッド（HPB風） ── */}
+      {(() => {
+        const images = [salon.top_image, ...(salon.gallery_images || [])].filter(Boolean).slice(0, 5)
+        if (images.length === 0) return (
+          <div style={{ width: '100%', height: 200, background: 'linear-gradient(135deg,#FFF0F5,#F5F0FF)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 48 }}>💅</span>
           </div>
-        )}
-
-        {/* スタイリスト */}
-        {infoTab === 'stylists' && (
-          <div>
-            {stylists.length === 0
-              ? <p className="text-center text-gray-400 mt-8">スタイリスト情報はまだありません</p>
-              : stylists.map(s => (
-                <div key={s.id} className="bg-white rounded-xl shadow p-4 mb-3 flex items-start gap-3">
-                  <div className="w-16 h-16 rounded-full bg-pink-100 overflow-hidden flex-shrink-0">
-                    {s.image_url
-                      ? <img src={s.image_url} alt="" className="w-full h-full object-cover" />
-                      : <div className="w-full h-full flex items-center justify-center text-2xl">✂️</div>}
-                  </div>
-                  <div>
-                    <p className="font-bold">{s.name}</p>
-                    {s.role && <p className="text-xs text-pink-500 font-bold">{s.role}</p>}
-                    {s.experience_years && <p className="text-xs text-gray-500">経験{s.experience_years}年</p>}
-                    {s.instagram && <a href={`https://instagram.com/${s.instagram}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400">@{s.instagram}</a>}
-                    {s.description && <p className="text-sm text-gray-600 mt-1">{s.description}</p>}
-                  </div>
-                </div>
-              ))}
+        )
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '150px 100px', gap: 2, maxHeight: 252, overflow: 'hidden', background: '#000' }}>
+            <img src={images[0]} alt="" style={{ gridRow: '1/3', width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            {[1, 2, 3, 4].map(i => (
+              images[i]
+                ? <img key={i} src={images[i]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                : <div key={i} style={{ background: '#F0E6F5' }} />
+            ))}
           </div>
-        )}
+        )
+      })()}
 
-        {/* 予約フロー */}
-        {infoTab === 'booking' && (
-          <div>
-            {/* ④ ログイン案内 */}
-            {isBlocked && (
-              <div style={{ background: '#FFEBEE', border: '1.5px solid #FFCDD2', borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: '#C62828', fontWeight: 500 }}>
-                このサロンへの予約はご利用いただけません。
-              </div>
-            )}
-            {!user && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 flex items-center justify-between">
-                <p className="text-sm text-yellow-700">⚠️ 予約にはログインが必要です</p>
-                <button onClick={() => router.push('/auth')}
-                  className="text-xs bg-yellow-400 text-white px-3 py-1 rounded-full font-bold whitespace-nowrap ml-2">
-                  ログイン／登録
-                </button>
-              </div>
-            )}
+      {/* ── 2カラムレイアウト ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 16, maxWidth: 980px, margin: '0 auto', padding: '16px 16px 40px' }}>
 
-            {/* ステップインジケーター */}
-            <div className="flex items-center mb-6">
-              {[
-                { n: 1, label: 'メニュー' },
-                { n: 2, label: 'スタイリスト' },
-                { n: 3, label: '日時' },
-                { n: 4, label: '確認' },
-              ].map((s, i) => (
-                <div key={s.n} className="flex items-center flex-1">
-                  <div className="flex flex-col items-center flex-1">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${step === s.n ? 'bg-pink-500 text-white' : step > s.n ? 'bg-pink-200 text-pink-700' : 'bg-gray-100 text-gray-400'
-                      }`}>{s.n}</div>
-                    <span className={`text-xs mt-0.5 ${step === s.n ? 'text-pink-500 font-bold' : 'text-gray-400'}`}>{s.label}</span>
-                  </div>
-                  {i < 3 && <div className={`h-0.5 flex-1 -mt-5 ${step > s.n ? 'bg-pink-300' : 'bg-gray-200'}`} />}
+        {/* ════ 左カラム ════ */}
+        <div style={{ minWidth: 0 }}>
+
+          {/* サロン名・基本情報カード */}
+          <div style={{ ...card, marginBottom: 0, borderRadius: '12px 12px 0 0', borderBottom: 'none' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ marginBottom: 6 }}>
+                  <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100, background: 'linear-gradient(135deg,#FFF0F5,#F5F0FF)', color: '#833AB4', border: '1px solid #E1306C33' }}>
+                    {salon.genre || 'ヘアサロン'}
+                  </span>
                 </div>
-              ))}
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 6 }}>{salon.name}</div>
+                <div style={{ fontSize: 12, color: '#737373', lineHeight: 1.9 }}>
+                  <div>📍 {salon.area}　{salon.address}</div>
+                  {salon.nearest_station && <div>🚉 {salon.nearest_station}駅近く</div>}
+                  {salon.phone && <div>📞 {salon.phone}</div>}
+                </div>
+              </div>
+              {/* 予約ボタン（左カラム上部） */}
+              <button
+                onClick={() => { setInfoTab('booking'); setStep(1) }}
+                style={{ background: grad, color: 'white', border: 'none', padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                空席確認・予約する
+              </button>
             </div>
+          </div>
 
-            {/* STEP 1: メニュー */}
-            {step === 1 && (
+          {/* タブバー */}
+          <div style={{ background: 'white', border: '1px solid #DBDBDB', borderTop: 'none', display: 'flex', overflowX: 'auto', marginBottom: 0 }}>
+            {([
+              { key: 'info', label: 'サロン情報' },
+              { key: 'booking', label: '予約する' },
+              { key: 'stylists', label: 'スタイリスト' },
+            ] as const).map(t => (
+              <button key={t.key}
+                onClick={() => { setInfoTab(t.key); if (t.key === 'booking') setStep(1) }}
+                style={{
+                  padding: '11px 18px', fontSize: 13, fontWeight: 700, border: 'none',
+                  borderBottom: infoTab === t.key ? '2px solid #E1306C' : '2px solid transparent',
+                  background: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                  color: infoTab === t.key ? '#111' : '#737373', whiteSpace: 'nowrap',
+                  transition: 'all 0.15s',
+                }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* タブコンテンツ */}
+          <div style={{ ...card, borderRadius: '0 0 12px 12px', borderTop: 'none' }}>
+
+            {/* ── サロン情報タブ ── */}
+            {infoTab === 'info' && (
               <div>
-                <h3 className="font-bold text-lg mb-3">📋 メニューを選ぶ</h3>
-                {menus.length === 0
-                  ? <p className="text-gray-400 text-sm">メニューがまだありません</p>
-                  : menus.map(menu => (
-                    <div key={menu.id} onClick={() => setSelectedMenu(menu)}
-                      className={`p-4 border-2 rounded-xl cursor-pointer mb-2 transition bg-white ${selectedMenu?.id === menu.id ? 'border-pink-500 bg-pink-50' : 'border-gray-100 hover:border-pink-300'}`}>
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <span className="font-bold">{menu.name}</span>
-                          {/* ⑨ メニュー説明文 */}
-                          {menu.description && (
-                            <p className="text-xs text-gray-500 mt-1">{menu.description}</p>
-                          )}
-                          <p className="text-xs text-gray-400 mt-1">⏱ 約{menu.duration}分</p>
-                        </div>
-                        <span className="text-pink-600 font-bold text-lg ml-3">¥{menu.price.toLocaleString()}</span>
-                      </div>
+                {/* 説明文 */}
+                {salon.description && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={sectionTitle}>サロンについて</div>
+                    <p style={{ fontSize: 13, color: '#555', lineHeight: 1.9 }}>{salon.description}</p>
+                  </div>
+                )}
+
+                {/* ギャラリー */}
+                {(salon.gallery_images || []).length > 0 && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={sectionTitle}>店内・サロン画像</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
+                      {salon.gallery_images.map((url: string, i: number) => (
+                        <img key={i} src={url} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8 }} />
+                      ))}
                     </div>
-                  ))}
-                <button onClick={() => selectedMenu && setStep(2)} disabled={!selectedMenu}
-                  className="w-full mt-4 bg-pink-500 text-white py-3 rounded-xl font-bold disabled:opacity-40 transition">
-                  次へ（スタイリストを選ぶ）→
-                </button>
-              </div>
-            )}
-
-            {/* STEP 2: スタイリスト */}
-            {step === 2 && (
-              <div>
-                <button onClick={() => setStep(1)} className="text-sm text-gray-400 mb-4 block">← 戻る</button>
-                <h3 className="font-bold text-lg mb-1">✂️ スタイリストを指名</h3>
-                <p className="text-xs text-gray-400 mb-3">選択メニュー：{selectedMenu?.name}（約{selectedMenu?.duration}分）</p>
-
-                <div onClick={() => handleStylistSelect(null)}
-                  className="p-4 border-2 border-dashed border-pink-200 rounded-xl cursor-pointer mb-3 hover:border-pink-400 bg-pink-50 transition flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-full bg-white border-2 border-pink-200 flex items-center justify-center text-2xl">👤</div>
-                  <div>
-                    <p className="font-bold">指名なし（フリー枠）</p>
-                    <p className="text-xs text-gray-500">サロンにお任せします</p>
-                    <p className="text-xs text-pink-400 mt-0.5">空き枠が最も多く取りやすいです</p>
                   </div>
-                </div>
+                )}
 
-                {stylists.length > 0 && (
-                  <>
-                    <p className="text-xs text-gray-400 mb-2 font-bold">スタイリストを指名する</p>
-                    {stylists.map(s => (
-                      <div key={s.id} onClick={() => handleStylistSelect(s)}
-                        className="p-4 border-2 border-gray-100 rounded-xl cursor-pointer mb-2 hover:border-pink-400 bg-white transition flex items-center gap-3">
-                        <div className="w-14 h-14 rounded-full bg-pink-100 overflow-hidden flex-shrink-0">
-                          {s.image_url
-                            ? <img src={s.image_url} alt="" className="w-full h-full object-cover" />
-                            : <div className="w-full h-full flex items-center justify-center text-2xl">✂️</div>}
+                {/* メニュー一覧 */}
+                {menus.length > 0 && (
+                  <div>
+                    <div style={sectionTitle}>メニュー</div>
+                    {menus.map(menu => (
+                      <div key={menu.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #F2F2F2' }}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>{menu.name}</div>
+                          {menu.description && <div style={{ fontSize: 11, color: '#737373', marginTop: 2 }}>{menu.description}</div>}
+                          <div style={{ fontSize: 11, color: '#737373', marginTop: 2 }}>約{menu.duration}分</div>
                         </div>
-                        <div className="flex-1">
-                          <p className="font-bold">{s.name}</p>
-                          {s.role && <p className="text-xs text-pink-500">{s.role}</p>}
-                          {s.experience_years && <p className="text-xs text-gray-400">経験{s.experience_years}年</p>}
-                          {s.description && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{s.description}</p>}
-                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, ...gradText, flexShrink: 0, marginLeft: 12 }}>¥{menu.price.toLocaleString()}</div>
                       </div>
                     ))}
-                  </>
+                  </div>
                 )}
               </div>
             )}
 
-            {/* STEP 3: 日時 */}
-            {step === 3 && (
+            {/* ── スタイリストタブ ── */}
+            {infoTab === 'stylists' && (
               <div>
-                <button onClick={() => setStep(2)} className="text-sm text-gray-400 mb-4 block">← 戻る</button>
-                <h3 className="font-bold text-lg mb-1">📅 日時を選ぶ</h3>
-                <p className="text-xs text-gray-400 mb-1">
-                  {selectedMenu?.name}　／　担当：{selectedStylist?.name || '指名なし（フリー枠）'}
-                </p>
-                <p className="text-xs text-orange-400 mb-3">⚠️ 予約は12時間前まで受け付けています</p>
-
-                {availabilityLoading ? (
-                  <div className="text-center py-12 text-gray-400">空き枠を確認中...</div>
-                ) : (
-                  <>
-                    {/* ⑥ 直近の空き日案内 */}
-                    {nearestAvailableDate && !selectedDate && (
-                      <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4 flex items-center justify-between">
-                        <p className="text-sm text-green-700">
-                          📅 直近の空き：<span className="font-bold">{nearestAvailableDate.replace(/-/g, '/')}</span>
-                        </p>
-                        <button onClick={() => setSelectedDate(nearestAvailableDate)}
-                          className="text-xs bg-green-500 text-white px-3 py-1 rounded-full font-bold whitespace-nowrap ml-2">
-                          この日を選ぶ
-                        </button>
+                {stylists.length === 0
+                  ? <div style={{ textAlign: 'center', color: '#737373', padding: '32px 0', fontSize: 13 }}>スタイリスト情報はまだありません</div>
+                  : stylists.map(s => (
+                    <div key={s.id} style={{ display: 'flex', gap: 14, padding: '14px 0', borderBottom: '1px solid #DBDBDB' }}>
+                      <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg,#FBE0EC,#EED9F7)', overflow: 'hidden', flexShrink: 0 }}>
+                        {s.image_url
+                          ? <img src={s.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, ...gradText }}>{s.name?.[0]}</div>}
                       </div>
-                    )}
-
-                    {/* カレンダー */}
-                    <div className="bg-white rounded-xl shadow p-4 mb-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
-                          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500">◀</button>
-                        <span className="font-bold text-base">
-                          {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
-                        </span>
-                        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
-                          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500">▶</button>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{s.name}</div>
+                        {s.role && <div style={{ fontSize: 11, fontWeight: 700, ...gradText, marginTop: 2 }}>{s.role}</div>}
+                        {s.experience_years && <div style={{ fontSize: 11, color: '#737373' }}>経験{s.experience_years}年</div>}
+                        {s.instagram && <a href={`https://instagram.com/${s.instagram}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#5851DB', textDecoration: 'none' }}>@{s.instagram}</a>}
+                        {s.description && <p style={{ fontSize: 12, color: '#555', marginTop: 4, lineHeight: 1.7 }}>{s.description}</p>}
                       </div>
-
-                      <div className="flex gap-4 mb-2 text-xs text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <span className="inline-block w-4 h-4 rounded bg-green-50 border border-green-200"></span>○ 空きあり
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <span className="inline-block w-4 h-4 rounded bg-gray-50"></span>× 受付不可
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-7 mb-1">
-                        {DAY_NAMES.map((d, i) => (
-                          <div key={d} className={`text-center text-xs font-bold py-1 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-500'}`}>{d}</div>
-                        ))}
-                      </div>
-
-                      <div className="grid grid-cols-7 gap-1">
-                        {calendarDays.map((day, i) => (
-                          <div key={i} className="aspect-square">
-                            {day.isEmpty ? <div /> : day.isPast ? (
-                              <div className="w-full h-full flex flex-col items-center justify-center text-gray-200 text-xs">
-                                <span>{parseInt(day.date.split('-')[2])}</span>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => { if (day.available) { setSelectedDate(day.date); setSelectedTime('') } }}
-                                disabled={!day.available}
-                                className={`w-full h-full flex flex-col items-center justify-center rounded-lg text-xs font-bold transition ${selectedDate === day.date
-                                  ? 'bg-pink-500 text-white shadow'
-                                  : day.available
-                                    ? 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
-                                    : 'text-gray-300 cursor-not-allowed'
-                                  }`}>
-                                <span>{parseInt(day.date.split('-')[2])}</span>
-                                <span className="text-xs leading-none">{day.available ? '○' : '×'}</span>
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* 時間スロット */}
-                    {selectedDate && (
-                      <div className="bg-white rounded-xl shadow p-4 mb-4">
-                        <h3 className="font-bold mb-2">
-                          🕐 {selectedDate.replace(/-/g, '/')} の空き時間
-                        </h3>
-                        <div className="flex gap-4 mb-3 text-xs text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <span className="inline-block w-4 h-4 rounded bg-green-100 border border-green-300"></span>
-                            空きあり
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <span className="inline-block w-4 h-4 rounded bg-gray-100 border border-gray-200"></span>
-                            予約済み・受付不可
-                          </span>
-                        </div>
-                        {allTimeSlots.length === 0 ? (
-                          <p className="text-sm text-gray-400">この日は受付可能な時間帯がありません</p>
-                        ) : (
-                          <div className="grid grid-cols-4 gap-2">
-                            {allTimeSlots.map(slot => {
-                              const available = timeSlots.includes(slot)
-                              const isSelected = selectedTime === slot
-                              return (
-                                <button key={slot}
-                                  onClick={() => available && setSelectedTime(slot)}
-                                  disabled={!available}
-                                  className={`py-2 rounded-lg text-sm font-bold border transition ${isSelected
-                                    ? 'bg-pink-500 text-white border-pink-500'
-                                    : available
-                                      ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
-                                      : 'border-gray-200 text-gray-300 bg-gray-50 cursor-not-allowed'
-                                    }`}>
-                                  {slot}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    <button onClick={() => selectedDate && selectedTime && setStep(4)}
-                      disabled={!selectedDate || !selectedTime}
-                      className="w-full bg-pink-500 text-white py-3 rounded-xl font-bold disabled:opacity-40 transition">
-                      次へ（予約内容を確認）→
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* STEP 4: 確認 */}
-            {step === 4 && (
-              <div>
-                <button onClick={() => setStep(3)} className="text-sm text-gray-400 mb-4 block">← 戻る</button>
-                <h3 className="font-bold text-lg mb-4">📝 予約内容の確認</h3>
-                <div className="bg-white rounded-xl shadow p-4 mb-4 divide-y">
-                  {[
-                    { label: 'サロン', value: salon.name },
-                    { label: 'メニュー', value: selectedMenu?.name },
-                    { label: '所要時間', value: `約${selectedMenu?.duration}分` },
-                    { label: '担当', value: selectedStylist?.name || '指名なし（フリー枠）' },
-                    { label: '日時', value: `${selectedDate.replace(/-/g, '/')} ${selectedTime}` },
-                  ].map(row => (
-                    <div key={row.label} className="flex justify-between py-2">
-                      <span className="text-sm text-gray-500">{row.label}</span>
-                      <span className="text-sm font-bold">{row.value}</span>
                     </div>
                   ))}
-                  <div className="flex justify-between py-3">
-                    <span className="text-sm text-gray-500">料金</span>
-                    <span className="text-xl font-black text-pink-600">¥{selectedMenu?.price.toLocaleString()}</span>
+              </div>
+            )}
+
+            {/* ── 予約タブ ── */}
+            {infoTab === 'booking' && (
+              <div>
+                {/* ブロック警告 */}
+                {isBlocked && (
+                  <div style={{ background: '#FFEBEE', border: '1.5px solid #FFCDD2', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: '#C62828', fontWeight: 700 }}>
+                    このサロンへの予約はご利用いただけません。
                   </div>
+                )}
+                {/* ログイン案内 */}
+                {!user && (
+                  <div style={{ background: '#FFFDE7', border: '1px solid #FFF176', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 13, color: '#F57F17' }}>予約にはログインが必要です</span>
+                    <button onClick={() => router.push('/auth')}
+                      style={{ background: '#FFA000', color: 'white', border: 'none', padding: '5px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                      ログイン
+                    </button>
+                  </div>
+                )}
+
+                {/* ステップインジケーター */}
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>
+                  {[
+                    { n: 1, label: 'メニュー' },
+                    { n: 2, label: 'スタイリスト' },
+                    { n: 3, label: '日時' },
+                    { n: 4, label: '確認' },
+                  ].map((s, i) => (
+                    <div key={s.n} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                        <div style={{
+                          width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 13, fontWeight: 700,
+                          background: step === s.n ? grad : step > s.n ? '#F0E6F5' : '#F2F2F2',
+                          color: step === s.n ? 'white' : step > s.n ? '#833AB4' : '#BDBDBD',
+                        }}>{s.n}</div>
+                        <span style={{ fontSize: 10, marginTop: 3, color: step === s.n ? '#E1306C' : '#BDBDBD', fontWeight: step === s.n ? 700 : 400 }}>{s.label}</span>
+                      </div>
+                      {i < 3 && <div style={{ height: 1, flex: 1, marginBottom: 14, background: step > s.n ? '#F0A0C0' : '#E0E0E0' }} />}
+                    </div>
+                  ))}
                 </div>
-                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4">
-                  <p className="text-xs text-yellow-700">⚠️ サロンの承認後に予約確定となります。3日以内に承認がない場合は自動キャンセルになります。</p>
-                  <p className="text-xs text-yellow-600 mt-1">予約状況はマイページでご確認いただけます。メールが届かない場合もマイページをご確認ください。</p>
-                </div>
-                <button onClick={makeReservation} disabled={bookingLoading || !user}
-                  className="w-full bg-pink-500 text-white py-4 rounded-xl font-bold text-lg disabled:opacity-50 transition">
-                  {bookingLoading ? '処理中...' : user ? '予約を申請する' : 'ログインが必要です'}
-                </button>
+
+                {/* STEP 1: メニュー */}
+                {step === 1 && (
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#111', marginBottom: 12 }}>メニューを選ぶ</div>
+                    {menus.length === 0
+                      ? <div style={{ textAlign: 'center', color: '#737373', fontSize: 13, padding: '24px 0' }}>メニューがまだありません</div>
+                      : menus.map(menu => (
+                        <div key={menu.id} onClick={() => setSelectedMenu(menu)}
+                          style={{
+                            padding: 14, border: selectedMenu?.id === menu.id ? '2px solid #E1306C' : '1.5px solid #DBDBDB',
+                            borderRadius: 10, cursor: 'pointer', marginBottom: 8, background: selectedMenu?.id === menu.id ? '#FFF0F5' : 'white',
+                            transition: 'all 0.15s',
+                          }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{menu.name}</div>
+                              {menu.description && <div style={{ fontSize: 11, color: '#737373', marginTop: 3, lineHeight: 1.6 }}>{menu.description}</div>}
+                              <div style={{ fontSize: 11, color: '#737373', marginTop: 3 }}>約{menu.duration}分</div>
+                            </div>
+                            <div style={{ fontSize: 15, fontWeight: 700, ...gradText, marginLeft: 12, flexShrink: 0 }}>¥{menu.price.toLocaleString()}</div>
+                          </div>
+                        </div>
+                      ))}
+                    <button onClick={() => selectedMenu && setStep(2)} disabled={!selectedMenu}
+                      style={{ width: '100%', marginTop: 8, background: selectedMenu ? grad : '#E0E0E0', color: 'white', border: 'none', padding: 13, borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: selectedMenu ? 'pointer' : 'not-allowed', fontFamily: 'inherit', opacity: selectedMenu ? 1 : 0.5 }}>
+                      次へ（スタイリストを選ぶ）→
+                    </button>
+                  </div>
+                )}
+
+                {/* STEP 2: スタイリスト */}
+                {step === 2 && (
+                  <div>
+                    <button onClick={() => setStep(1)} style={{ fontSize: 12, color: '#737373', background: 'none', border: 'none', cursor: 'pointer', marginBottom: 12, fontFamily: 'inherit' }}>← 戻る</button>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#111', marginBottom: 4 }}>スタイリストを指名</div>
+                    <div style={{ fontSize: 11, color: '#737373', marginBottom: 12 }}>選択メニュー：{selectedMenu?.name}（約{selectedMenu?.duration}分）</div>
+
+                    <div onClick={() => handleStylistSelect(null)}
+                      style={{ padding: 14, border: '1.5px dashed #F0A0C0', borderRadius: 10, cursor: 'pointer', marginBottom: 10, background: '#FFF0F5', display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.15s' }}>
+                      <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'white', border: '1.5px solid #F0A0C0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>👤</div>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>指名なし（フリー枠）</div>
+                        <div style={{ fontSize: 11, color: '#737373', marginTop: 2 }}>サロンにお任せします</div>
+                        <div style={{ fontSize: 11, color: '#E1306C', marginTop: 2 }}>空き枠が最も多く取りやすいです</div>
+                      </div>
+                    </div>
+
+                    {stylists.length > 0 && (
+                      <>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#737373', marginBottom: 8 }}>スタイリストを指名する</div>
+                        {stylists.map(s => (
+                          <div key={s.id} onClick={() => handleStylistSelect(s)}
+                            style={{ padding: 14, border: '1.5px solid #DBDBDB', borderRadius: 10, cursor: 'pointer', marginBottom: 8, background: 'white', display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.15s' }}>
+                            <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'linear-gradient(135deg,#FBE0EC,#EED9F7)', overflow: 'hidden', flexShrink: 0 }}>
+                              {s.image_url
+                                ? <img src={s.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700, ...gradText }}>{s.name?.[0]}</div>}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{s.name}</div>
+                              {s.role && <div style={{ fontSize: 11, fontWeight: 700, ...gradText }}>{s.role}</div>}
+                              {s.experience_years && <div style={{ fontSize: 11, color: '#737373' }}>経験{s.experience_years}年</div>}
+                              {s.description && <div style={{ fontSize: 11, color: '#737373', marginTop: 3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as any}>{s.description}</div>}
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* STEP 3: 日時 */}
+                {step === 3 && (
+                  <div>
+                    <button onClick={() => setStep(2)} style={{ fontSize: 12, color: '#737373', background: 'none', border: 'none', cursor: 'pointer', marginBottom: 12, fontFamily: 'inherit' }}>← 戻る</button>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#111', marginBottom: 4 }}>日時を選ぶ</div>
+                    <div style={{ fontSize: 11, color: '#737373', marginBottom: 2 }}>{selectedMenu?.name}　／　担当：{selectedStylist?.name || '指名なし（フリー枠）'}</div>
+                    <div style={{ fontSize: 11, color: '#F57F17', marginBottom: 12 }}>予約は12時間前まで受け付けています</div>
+
+                    {availabilityLoading ? (
+                      <div style={{ textAlign: 'center', padding: '40px 0', color: '#737373', fontSize: 13 }}>空き枠を確認中...</div>
+                    ) : (
+                      <>
+                        {/* 直近の空き案内 */}
+                        {nearestAvailableDate && !selectedDate && (
+                          <div style={{ background: '#E8F5E9', border: '1px solid #A5D6A7', borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: 12, color: '#2E7D32' }}>直近の空き：<strong>{nearestAvailableDate.replace(/-/g, '/')}</strong></span>
+                            <button onClick={() => setSelectedDate(nearestAvailableDate)}
+                              style={{ background: '#43A047', color: 'white', border: 'none', padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                              この日を選ぶ
+                            </button>
+                          </div>
+                        )}
+
+                        {/* カレンダー */}
+                        <div style={{ background: '#FAFAFA', borderRadius: 10, border: '1px solid #DBDBDB', padding: 14, marginBottom: 12 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                            <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+                              style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid #DBDBDB', background: 'white', cursor: 'pointer', fontSize: 12, color: '#737373', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>◀</button>
+                            <span style={{ fontWeight: 700, fontSize: 14, color: '#111' }}>{currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月</span>
+                            <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+                              style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid #DBDBDB', background: 'white', cursor: 'pointer', fontSize: 12, color: '#737373', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>▶</button>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+                            <span style={{ fontSize: 10, color: '#737373', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: 3, background: '#E8F5E9', border: '1px solid #A5D6A7' }} />○ 空きあり
+                            </span>
+                            <span style={{ fontSize: 10, color: '#737373', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: 3, background: '#F5F5F5' }} />× 受付不可
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: 4 }}>
+                            {DAY_NAMES.map((d, i) => (
+                              <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, padding: '4px 0', color: i === 0 ? '#E53935' : i === 6 ? '#5851DB' : '#737373' }}>{d}</div>
+                            ))}
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3 }}>
+                            {calendarDays.map((day, i) => (
+                              <div key={i} style={{ aspectRatio: '1' }}>
+                                {day.isEmpty ? <div /> : day.isPast ? (
+                                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#BDBDBD' }}>
+                                    {parseInt(day.date.split('-')[2])}
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => { if (day.available) { setSelectedDate(day.date); setSelectedTime('') } }}
+                                    disabled={!day.available}
+                                    style={{
+                                      width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                      borderRadius: 6, fontSize: 11, fontWeight: 700, border: 'none', cursor: day.available ? 'pointer' : 'not-allowed', fontFamily: 'inherit',
+                                      background: selectedDate === day.date ? grad : day.available ? '#E8F5E9' : 'transparent',
+                                      color: selectedDate === day.date ? 'white' : day.available ? '#2E7D32' : '#BDBDBD',
+                                      outline: selectedDate === day.date ? 'none' : day.available ? '1px solid #A5D6A7' : 'none',
+                                    }}>
+                                    <span>{parseInt(day.date.split('-')[2])}</span>
+                                    <span style={{ fontSize: 9 }}>{day.available ? '○' : '×'}</span>
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* 時間スロット */}
+                        {selectedDate && (
+                          <div style={{ background: '#FAFAFA', borderRadius: 10, border: '1px solid #DBDBDB', padding: 14, marginBottom: 12 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#111', marginBottom: 10 }}>
+                              {selectedDate.replace(/-/g, '/')} の空き時間
+                            </div>
+                            {allTimeSlots.length === 0
+                              ? <div style={{ fontSize: 12, color: '#737373' }}>この日は受付可能な時間帯がありません</div>
+                              : (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
+                                  {allTimeSlots.map(slot => {
+                                    const available = timeSlots.includes(slot)
+                                    const isSelected = selectedTime === slot
+                                    return (
+                                      <button key={slot}
+                                        onClick={() => available && setSelectedTime(slot)}
+                                        disabled={!available}
+                                        style={{
+                                          padding: '8px 0', borderRadius: 8, fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
+                                          border: 'none', cursor: available ? 'pointer' : 'not-allowed',
+                                          background: isSelected ? grad : available ? '#E8F5E9' : '#F5F5F5',
+                                          color: isSelected ? 'white' : available ? '#2E7D32' : '#BDBDBD',
+                                          outline: available && !isSelected ? '1px solid #A5D6A7' : 'none',
+                                        }}>
+                                        {slot}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                          </div>
+                        )}
+
+                        <button onClick={() => selectedDate && selectedTime && setStep(4)}
+                          disabled={!selectedDate || !selectedTime}
+                          style={{ width: '100%', background: selectedDate && selectedTime ? grad : '#E0E0E0', color: 'white', border: 'none', padding: 13, borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: selectedDate && selectedTime ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
+                          次へ（予約内容を確認）→
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* STEP 4: 確認 */}
+                {step === 4 && (
+                  <div>
+                    <button onClick={() => setStep(3)} style={{ fontSize: 12, color: '#737373', background: 'none', border: 'none', cursor: 'pointer', marginBottom: 12, fontFamily: 'inherit' }}>← 戻る</button>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#111', marginBottom: 16 }}>予約内容の確認</div>
+                    <div style={{ background: '#FAFAFA', border: '1px solid #DBDBDB', borderRadius: 10, padding: 14, marginBottom: 12 }}>
+                      {[
+                        { label: 'サロン', value: salon.name },
+                        { label: 'メニュー', value: selectedMenu?.name },
+                        { label: '所要時間', value: `約${selectedMenu?.duration}分` },
+                        { label: '担当', value: selectedStylist?.name || '指名なし（フリー枠）' },
+                        { label: '日時', value: `${selectedDate.replace(/-/g, '/')} ${selectedTime}` },
+                      ].map(row => (
+                        <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #EEEEEE' }}>
+                          <span style={{ fontSize: 12, color: '#737373' }}>{row.label}</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: '#111' }}>{row.value}</span>
+                        </div>
+                      ))}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 0' }}>
+                        <span style={{ fontSize: 12, color: '#737373' }}>料金</span>
+                        <span style={{ fontSize: 18, fontWeight: 700, ...gradText }}>¥{selectedMenu?.price.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    <div style={{ background: '#FFFDE7', border: '1px solid #FFF176', borderRadius: 10, padding: '10px 14px', marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, color: '#F57F17', lineHeight: 1.7 }}>サロンの承認後に予約確定となります。3日以内に承認がない場合は自動キャンセルになります。</div>
+                      <div style={{ fontSize: 11, color: '#F57F17', lineHeight: 1.7, marginTop: 4 }}>予約状況はマイページでご確認いただけます。</div>
+                    </div>
+                    <button onClick={makeReservation} disabled={bookingLoading || !user}
+                      style={{ width: '100%', background: grad, color: 'white', border: 'none', padding: 15, borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: bookingLoading || !user ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: bookingLoading || !user ? 0.5 : 1 }}>
+                      {bookingLoading ? '処理中...' : user ? '予約を申請する' : 'ログインが必要です'}
+                    </button>
+                  </div>
+                )}
+
               </div>
             )}
           </div>
-        )}
+        </div>
+
+        {/* ════ 右カラム ════ */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* ユーザー情報カード */}
+          <div style={card}>
+            {user ? (
+              <>
+                <div style={{ fontSize: 11, color: '#737373', marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid #DBDBDB' }}>
+                  こんにちは、<strong style={{ color: '#111' }}>{displayName}</strong>さん
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg,#FBE0EC,#EED9F7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0, fontWeight: 700, ...gradText }}>
+                    {displayName?.[0]?.toUpperCase() || '?'}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>{displayName}</div>
+                    <div style={{ fontSize: 11, color: '#737373' }}>一般ユーザー</div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 12, color: '#737373', marginBottom: 12, textAlign: 'center' }}>ログインしていません</div>
+            )}
+
+            <button
+              onClick={() => { setInfoTab('booking'); setStep(1) }}
+              style={{ width: '100%', background: grad, color: 'white', border: 'none', padding: '10px 0', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>
+              空席確認・予約する
+            </button>
+
+            {!user && (
+              <button onClick={() => router.push('/auth')}
+                style={{ width: '100%', background: 'none', border: '1px solid #DBDBDB', padding: '8px 0', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#737373' }}>
+                ログイン / 新規登録
+              </button>
+            )}
+          </div>
+
+          {/* マイメニューカード */}
+          {user && (
+            <div style={card}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#737373', letterSpacing: '0.06em', marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid #DBDBDB' }}>マイメニュー</div>
+              {rightLinks.map(link => (
+                <Link key={link.label} href={link.href}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#262626', textDecoration: 'none', padding: '8px 0', borderBottom: '1px solid #F2F2F2' }}>
+                  <span style={{ fontSize: 10, color: '#E1306C' }}>▶</span>{link.label}
+                </Link>
+              ))}
+              <button
+                onClick={async () => { await supabase.auth.signOut(); router.push('/') }}
+                style={{ width: '100%', marginTop: 8, background: 'none', border: '1px solid #DBDBDB', padding: '7px 0', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#737373' }}>
+                ログアウト
+              </button>
+            </div>
+          )}
+
+          {/* 最近見たサロンカード */}
+          {recentSalons.filter(s => s.id !== id).length > 0 && (
+            <div style={card}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#737373', letterSpacing: '0.06em', marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid #DBDBDB' }}>最近見たサロン</div>
+              {recentSalons
+                .filter(s => s.id !== id)
+                .map(s => (
+                  <Link key={s.id} href={`/salons/${s.id}`}
+                    style={{ display: 'block', padding: '7px 0', borderBottom: '1px solid #F2F2F2', textDecoration: 'none' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#262626' }}>{s.name}</div>
+                    {s.area && <div style={{ fontSize: 10, color: '#737373', marginTop: 1 }}>{s.area}</div>}
+                  </Link>
+                ))}
+            </div>
+          )}
+
+        </div>
       </div>
     </div>
   )
