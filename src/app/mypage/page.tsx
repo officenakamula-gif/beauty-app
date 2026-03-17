@@ -33,94 +33,82 @@ export default function MyPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p className="text-gray-400">読み込み中...</p>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ fontSize: 13, color: '#737373' }}>読み込み中...</div>
     </div>
   )
 
   const statusConfig: any = {
-    pending:   { label: '承認待ち',    color: 'bg-yellow-100 text-yellow-700', icon: '⏳' },
-    confirmed: { label: '予約確定',    color: 'bg-green-100 text-green-700',   icon: '✅' },
-    cancelled: { label: 'キャンセル',  color: 'bg-red-100 text-red-700',       icon: '❌' },
-    completed: { label: '来店完了',    color: 'bg-gray-100 text-gray-600',     icon: '⭐' },
-    expired:   { label: 'タイムアウト', color: 'bg-gray-100 text-gray-400',    icon: '⏱' },
+    pending:   { label: '承認待ち',    bg: '#FFF8E1', color: '#F57F17' },
+    confirmed: { label: '予約確定',    bg: '#E8F5E9', color: '#2E7D32' },
+    cancelled: { label: 'キャンセル',  bg: '#FFEBEE', color: '#C62828' },
+    completed: { label: '来店完了',    bg: '#F3E5F5', color: '#6A1B9A' },
+    expired:   { label: 'タイムアウト', bg: '#FAFAFA', color: '#737373' },
   }
 
-  const activeReservations = reservations.filter(r => ['pending', 'confirmed'].includes(r.status))
-  const pastReservations = reservations.filter(r => ['cancelled', 'completed', 'expired'].includes(r.status))
+  const activeRes = reservations.filter(r => ['pending', 'confirmed'].includes(r.status))
+  const pastRes = reservations.filter(r => ['cancelled', 'completed', 'expired'].includes(r.status))
 
-  const ReservationCard = ({ res, isPast }: { res: any, isPast: boolean }) => (
-    <div className={`bg-white rounded-lg shadow p-4 mb-3 ${isPast ? 'opacity-75' : ''}`}>
-      <div className="flex justify-between items-center mb-2">
-        <span className={`text-sm px-3 py-1 rounded-full font-bold ${statusConfig[res.status].color}`}>
-          {statusConfig[res.status].icon} {statusConfig[res.status].label}
+  const gradText = { background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' } as any
+
+  const Card = ({ res, past }: { res: any, past: boolean }) => (
+    <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: '18px 20px', marginBottom: 10, opacity: past ? 0.65 : 1 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 100, background: statusConfig[res.status]?.bg, color: statusConfig[res.status]?.color }}>
+          {statusConfig[res.status]?.label}
         </span>
+        <span style={{ fontSize: 11, color: '#737373' }}>{new Date(res.reserved_at).toLocaleString('ja-JP')}</span>
       </div>
-      <p className="font-bold text-base">{res.salons?.name}</p>
-      <p className="text-sm text-gray-500">📍 {res.salons?.area}</p>
-      <p className="text-base font-bold text-gray-700 mt-1">
-        📅 {new Date(res.reserved_at).toLocaleString('ja-JP')}
-      </p>
-      <p className="text-sm text-gray-600 mt-1">{res.menus?.name}</p>
-      {res.stylists?.name && (
-        <p className="text-sm text-gray-500">✂️ 担当：{res.stylists.name}</p>
-      )}
-      <p className="text-base text-pink-600 font-bold mt-1">¥{res.menus?.price?.toLocaleString()}</p>
+      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{res.salons?.name}</div>
+      <div style={{ fontSize: 12, color: '#737373', lineHeight: 1.8 }}>
+        {res.salons?.area}<br />
+        {res.menus?.name}
+        {res.stylists?.name && <>&nbsp;&nbsp;/&nbsp;&nbsp;担当：{res.stylists.name}</>}
+      </div>
+      <div style={{ fontSize: 18, fontWeight: 700, marginTop: 8, ...gradText }}>¥{res.menus?.price?.toLocaleString()}</div>
 
-      {!isPast && res.status === 'pending' && (
-        <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
-          <p className="text-sm text-yellow-700">
-            ⏳ サロンの承認をお待ちください。3日以内に承認がない場合は自動キャンセルになります。
-          </p>
-          <p className="text-sm text-gray-400 mt-1">
-            タイムアウト：{new Date(res.timeout_at).toLocaleString('ja-JP')}
-          </p>
-          <button onClick={() => cancelReservation(res.id)}
-            className="mt-2 text-sm text-red-500 border border-red-200 px-3 py-1 rounded">
-            予約をキャンセルする
-          </button>
+      {!past && res.status === 'pending' && (
+        <div style={{ marginTop: 12, background: '#FFF8E1', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#8A6914', lineHeight: 1.6 }}>
+          サロンの承認をお待ちください。タイムアウト：{new Date(res.timeout_at).toLocaleString('ja-JP')}
         </div>
       )}
-
-      {!isPast && res.status === 'confirmed' && (
-        <div className="mt-3 p-3 bg-green-50 rounded-lg">
-          <p className="text-sm text-green-700">✅ 予約が確定しました！ご来店をお楽しみに。</p>
-          <button onClick={() => cancelReservation(res.id)}
-            className="mt-2 text-sm text-red-500 border border-red-200 px-3 py-1 rounded">
-            予約をキャンセルする
-          </button>
+      {!past && res.status === 'confirmed' && (
+        <div style={{ marginTop: 12, background: '#E8F5E9', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#2E7D32', fontWeight: 500 }}>
+          予約が確定しました。ご来店をお楽しみに。
         </div>
+      )}
+      {!past && (
+        <button onClick={() => cancelReservation(res.id)}
+          style={{ marginTop: 10, fontSize: 12, color: '#737373', border: '1.5px solid #DBDBDB', background: 'none', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
+          予約をキャンセルする
+        </button>
       )}
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-pink-600 text-white">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="text-2xl font-black">💄 BeautyBook</Link>
-          <p className="text-sm opacity-75">{user?.email}</p>
-        </div>
+    <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
+      <header style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Link href="/" style={{ fontSize: 20, fontWeight: 700, textDecoration: 'none', ...gradText }}>Salon de Beauty</Link>
+        <span style={{ fontSize: 12, color: '#737373' }}>{user?.email}</span>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 py-6">
-        <h2 className="text-xl font-bold mb-4">マイページ</h2>
+      <div style={{ maxWidth: 640, margin: '0 auto', padding: '24px 32px' }}>
+        <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 24, ...gradText }}>My Page</div>
 
-        <div className="mb-6">
-          <h3 className="font-bold text-gray-700 mb-3">📅 進行中の予約（{activeReservations.length}件）</h3>
-          {activeReservations.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-6 text-center text-gray-400">
-              <p>進行中の予約はありません</p>
-              <Link href="/" className="text-pink-600 text-sm mt-2 block">サロンを探す →</Link>
-            </div>
-          ) : activeReservations.map(res => <ReservationCard key={res.id} res={res} isPast={false} />)}
-        </div>
-
-        {pastReservations.length > 0 && (
-          <div>
-            <h3 className="font-bold text-gray-700 mb-3">📋 過去の予約</h3>
-            {pastReservations.map(res => <ReservationCard key={res.id} res={res} isPast={true} />)}
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#737373', letterSpacing: '0.1em', marginBottom: 12 }}>進行中の予約</div>
+        {activeRes.length === 0 ? (
+          <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: 40, textAlign: 'center', color: '#737373', marginBottom: 10 }}>
+            進行中の予約はありません
+            <div><Link href="/" style={{ fontSize: 12, color: '#E1306C', fontWeight: 700, textDecoration: 'none', marginTop: 8, display: 'inline-block' }}>サロンを探す →</Link></div>
           </div>
+        ) : activeRes.map(r => <Card key={r.id} res={r} past={false} />)}
+
+        {pastRes.length > 0 && (
+          <>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#737373', letterSpacing: '0.1em', marginBottom: 12, marginTop: 24 }}>過去の予約</div>
+            {pastRes.map(r => <Card key={r.id} res={r} past={true} />)}
+          </>
         )}
       </div>
     </div>

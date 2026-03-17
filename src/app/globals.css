@@ -1,1 +1,46 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
+
+:root {
+  --grad: linear-gradient(45deg, #F77737, #E1306C, #833AB4, #5851DB);
+  --grad-soft: linear-gradient(135deg, #FFF0F5 0%, #F5F0FF 100%);
+  --bg: #FAFAFA;
+  --white: #FFFFFF;
+  --charcoal: #111111;
+  --gray-dark: #262626;
+  --gray-mid: #737373;
+  --gray-light: #DBDBDB;
+  --gray-bg: #F2F2F2;
+  --ig-pink: #E1306C;
+  --ig-purple: #833AB4;
+  --ig-orange: #F77737;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  font-family: 'Noto Sans JP', sans-serif;
+  background: var(--bg);
+  color: var(--charcoal);
+  font-weight: 300;
+  -webkit-font-smoothing: antialiased;
+}
+
+.grad-text {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.grad-bg {
+  background: var(--grad);
+}
+
+.grad-border {
+  border: 2px solid transparent;
+  background: linear-gradient(white, white) padding-box, var(--grad) border-box;
+}

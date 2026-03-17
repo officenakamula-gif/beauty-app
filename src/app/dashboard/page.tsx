@@ -5,8 +5,12 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { REGIONS } from '@/lib/areas'
 import { DAY_NAMES } from '@/lib/availability'
+import Link from 'next/link'
 
 const GENRES = ['ヘアサロン', 'ネイル・まつげ', 'リラク・エステ']
+
+const grad = 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)'
+const gradText: any = { background: grad, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }
 
 const getAreasForPref = (pref: string): string[] => {
   for (const region of Object.values(REGIONS)) {
@@ -24,6 +28,9 @@ const findPrefForArea = (area: string): string => {
   return '北海道'
 }
 
+const inputStyle: any = { width: '100%', border: '1.5px solid #DBDBDB', borderRadius: 10, padding: '10px 14px', fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#111', background: '#FAFAFA' }
+const labelStyle: any = { fontSize: 12, fontWeight: 700, color: '#737373', display: 'block', marginBottom: 6 }
+
 export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -34,7 +41,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [tab, setTab] = useState<'salon' | 'menus' | 'stylists' | 'reservations'>('salon')
+  const [tab, setTab] = useState<'salon'|'menus'|'stylists'|'reservations'>('salon')
 
   const topImageRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
@@ -44,9 +51,7 @@ export default function DashboardPage() {
     address: '', nearest_station: '', description: '', phone: '', slot_interval: 30
   })
   const [menuForm, setMenuForm] = useState({ name: '', price: '', duration: '', description: '' })
-  const [stylistForm, setStylistForm] = useState({
-    name: '', role: '', experience_years: '', description: '', instagram: ''
-  })
+  const [stylistForm, setStylistForm] = useState({ name: '', role: '', experience_years: '', description: '', instagram: '' })
   const [stylistImageFile, setStylistImageFile] = useState<File | null>(null)
   const [stylistImagePreview, setStylistImagePreview] = useState('')
   const [editingScheduleStylistId, setEditingScheduleStylistId] = useState<string | null>(null)
@@ -66,15 +71,10 @@ export default function DashboardPage() {
       setSalon(salonData)
       const pref = findPrefForArea(salonData.area)
       setSalonForm({
-        name: salonData.name || '',
-        genre: salonData.genre || 'ヘアサロン',
-        prefecture: pref,
-        area: salonData.area || '',
-        address: salonData.address || '',
-        nearest_station: salonData.nearest_station || '',
-        description: salonData.description || '',
-        phone: salonData.phone || '',
-        slot_interval: salonData.slot_interval || 30,
+        name: salonData.name || '', genre: salonData.genre || 'ヘアサロン', prefecture: pref,
+        area: salonData.area || '', address: salonData.address || '',
+        nearest_station: salonData.nearest_station || '', description: salonData.description || '',
+        phone: salonData.phone || '', slot_interval: salonData.slot_interval || 30,
       })
       const { data: menuData } = await supabase.from('menus').select('*').eq('salon_id', salonData.id)
       setMenus(menuData || [])
@@ -101,10 +101,7 @@ export default function DashboardPage() {
     if (!salon || !e.target.files?.[0]) return
     setUploading(true)
     const url = await uploadImage(e.target.files[0], `salons/${salon.id}/top`)
-    if (url) {
-      await supabase.from('salons').update({ top_image: url }).eq('id', salon.id)
-      setSalon({ ...salon, top_image: url })
-    }
+    if (url) { await supabase.from('salons').update({ top_image: url }).eq('id', salon.id); setSalon({ ...salon, top_image: url }) }
     setUploading(false)
   }
 
@@ -131,40 +128,32 @@ export default function DashboardPage() {
   }
 
   const saveSalon = async () => {
-    if (!salonForm.name || !salonForm.area || !salonForm.address) {
-      alert('サロン名・エリア・住所は必須です'); return
-    }
+    if (!salonForm.name || !salonForm.area || !salonForm.address) { alert('サロン名・エリア・住所は必須です'); return }
     setSaving(true)
     const payload = {
       name: salonForm.name, genre: salonForm.genre, area: salonForm.area,
       address: salonForm.address, nearest_station: salonForm.nearest_station,
-      description: salonForm.description, phone: salonForm.phone,
-      slot_interval: salonForm.slot_interval,
+      description: salonForm.description, phone: salonForm.phone, slot_interval: salonForm.slot_interval,
     }
     if (salon) {
       const { error } = await supabase.from('salons').update(payload).eq('id', salon.id)
       if (error) { alert('エラー: ' + error.message); setSaving(false); return }
-      alert('✅ 更新しました')
+      alert('更新しました')
     } else {
-      const { data, error } = await supabase.from('salons')
-        .insert({ ...payload, owner_id: user.id, is_active: true }).select().single()
+      const { data, error } = await supabase.from('salons').insert({ ...payload, owner_id: user.id, is_active: true }).select().single()
       if (error) { alert('エラー: ' + error.message); setSaving(false); return }
       setSalon(data)
-      alert('✅ サロンを登録しました')
+      alert('サロンを登録しました')
     }
-    setSaving(false)
-    init()
+    setSaving(false); init()
   }
 
   const addMenu = async () => {
     if (!salon) { alert('先にサロン情報を保存してください'); return }
     if (!menuForm.name || !menuForm.price || !menuForm.duration) { alert('名前・料金・時間は必須です'); return }
     const { error } = await supabase.from('menus').insert({
-      salon_id: salon.id,
-      name: menuForm.name,
-      price: parseInt(menuForm.price),
-      duration: parseInt(menuForm.duration),
-      description: menuForm.description || null,
+      salon_id: salon.id, name: menuForm.name, price: parseInt(menuForm.price),
+      duration: parseInt(menuForm.duration), description: menuForm.description || null,
     })
     if (error) { alert('エラー: ' + error.message); return }
     setMenuForm({ name: '', price: '', duration: '', description: '' })
@@ -183,9 +172,7 @@ export default function DashboardPage() {
     if (!stylistForm.name) { alert('スタイリスト名は必須です'); return }
     setUploading(true)
     let imageUrl = null
-    if (stylistImageFile) {
-      imageUrl = await uploadImage(stylistImageFile, `salons/${salon.id}/stylists`)
-    }
+    if (stylistImageFile) imageUrl = await uploadImage(stylistImageFile, `salons/${salon.id}/stylists`)
     const { error } = await supabase.from('stylists').insert({
       salon_id: salon.id, name: stylistForm.name, role: stylistForm.role,
       experience_years: stylistForm.experience_years ? parseInt(stylistForm.experience_years) : null,
@@ -193,8 +180,7 @@ export default function DashboardPage() {
     })
     if (error) { alert('エラー: ' + error.message); setUploading(false); return }
     setStylistForm({ name: '', role: '', experience_years: '', description: '', instagram: '' })
-    setStylistImageFile(null)
-    setStylistImagePreview('')
+    setStylistImageFile(null); setStylistImagePreview('')
     const { data } = await supabase.from('stylists').select('*').eq('salon_id', salon.id)
     setStylists(data || [])
     setUploading(false)
@@ -209,15 +195,9 @@ export default function DashboardPage() {
   const openScheduleEditor = async (stylistId: string) => {
     const { data } = await supabase.from('stylist_schedules').select('*').eq('stylist_id', stylistId)
     const existing = data || []
-    const defaultForm = [0, 1, 2, 3, 4, 5, 6].map(dow => {
+    const defaultForm = [0,1,2,3,4,5,6].map(dow => {
       const found = existing.find((s: any) => s.day_of_week === dow)
-      return found || {
-        stylist_id: stylistId,
-        day_of_week: dow,
-        is_day_off: dow === 0 || dow === 1,
-        start_time: '10:00',
-        end_time: '19:00',
-      }
+      return found || { stylist_id: stylistId, day_of_week: dow, is_day_off: dow === 0 || dow === 1, start_time: '10:00', end_time: '19:00' }
     })
     setScheduleForm(defaultForm)
     setEditingScheduleStylistId(stylistId)
@@ -228,19 +208,14 @@ export default function DashboardPage() {
     setScheduleSaving(true)
     for (const s of scheduleForm) {
       if (s.id) {
-        await supabase.from('stylist_schedules').update({
-          is_day_off: s.is_day_off, start_time: s.start_time, end_time: s.end_time
-        }).eq('id', s.id)
+        await supabase.from('stylist_schedules').update({ is_day_off: s.is_day_off, start_time: s.start_time, end_time: s.end_time }).eq('id', s.id)
       } else {
-        await supabase.from('stylist_schedules').insert({
-          stylist_id: s.stylist_id, day_of_week: s.day_of_week,
-          is_day_off: s.is_day_off, start_time: s.start_time, end_time: s.end_time
-        })
+        await supabase.from('stylist_schedules').insert({ stylist_id: s.stylist_id, day_of_week: s.day_of_week, is_day_off: s.is_day_off, start_time: s.start_time, end_time: s.end_time })
       }
     }
     setScheduleSaving(false)
     setEditingScheduleStylistId(null)
-    alert('✅ スケジュールを保存しました')
+    alert('スケジュールを保存しました')
   }
 
   const updateReservationStatus = async (id: string, status: string) => {
@@ -248,112 +223,103 @@ export default function DashboardPage() {
     setReservations(reservations.map(r => r.id === id ? { ...r, status } : r))
   }
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p className="text-gray-400">読み込み中...</p>
-    </div>
-  )
+  if (loading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ color: '#737373' }}>読み込み中...</div></div>
 
-  const statusColor: any = {
-    pending: 'bg-yellow-100 text-yellow-700', confirmed: 'bg-green-100 text-green-700',
-    cancelled: 'bg-red-100 text-red-700', completed: 'bg-gray-100 text-gray-600',
-    expired: 'bg-gray-100 text-gray-400'
+  const statusConfig: any = {
+    pending:   { label: '承認待ち',    bg: '#FFF8E1', color: '#F57F17' },
+    confirmed: { label: '承認済',      bg: '#E8F5E9', color: '#2E7D32' },
+    cancelled: { label: 'キャンセル',  bg: '#FFEBEE', color: '#C62828' },
+    completed: { label: '完了',        bg: '#F3E5F5', color: '#6A1B9A' },
+    expired:   { label: 'タイムアウト', bg: '#FAFAFA', color: '#737373' },
   }
-  const statusLabel: any = {
-    pending: '未確認', confirmed: '確認済', cancelled: 'キャンセル',
-    completed: '完了', expired: 'タイムアウト'
-  }
+
+  const tabList = [
+    { key: 'salon', label: 'サロン情報' },
+    { key: 'menus', label: 'メニュー' },
+    { key: 'stylists', label: 'スタイリスト' },
+    { key: 'reservations', label: '予約管理' },
+  ]
+
+  const card: any = { background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: 24, marginBottom: 16 }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-pink-500 text-white p-4 flex justify-between items-center">
-        <div>
-          <h1 className="text-lg font-bold">💅 サロン管理画面</h1>
-          <p className="text-xs opacity-75">{user?.email}</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => router.push('/')}
-            className="text-xs bg-white text-pink-500 px-3 py-1 rounded-full font-bold">
-            🏠 トップへ戻る
-          </button>
-          <button onClick={async () => { await supabase.auth.signOut(); router.push('/') }}
-            className="text-xs bg-pink-400 text-white px-3 py-1 rounded-full font-bold">
-            ログアウト
-          </button>
+    <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
+      {/* Header */}
+      <header style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Link href="/" style={{ fontSize: 20, fontWeight: 700, textDecoration: 'none', ...gradText }}>Salon de Beauty</Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 12, color: '#737373' }}>{user?.email}</span>
+          <button onClick={() => router.push('/')} style={{ fontSize: 12, border: '1.5px solid #DBDBDB', background: 'none', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: '#262626' }}>トップへ</button>
+          <button onClick={async () => { await supabase.auth.signOut(); router.push('/') }} style={{ background: grad, color: 'white', border: 'none', padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>ログアウト</button>
         </div>
       </header>
 
-      <div className="flex border-b bg-white overflow-x-auto">
-        {(['salon', 'menus', 'stylists', 'reservations'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 py-3 text-xs font-bold whitespace-nowrap px-2 transition ${tab === t ? 'border-b-2 border-pink-500 text-pink-500' : 'text-gray-400'}`}>
-            {t === 'salon' ? '🏪 サロン情報' : t === 'menus' ? '📋 メニュー' : t === 'stylists' ? '✂️ スタイリスト' : '📅 予約'}
+      {/* Tabs */}
+      <div style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', display: 'flex' }}>
+        {tabList.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key as any)}
+            style={{ padding: '12px 20px', fontSize: 12, fontWeight: 700, border: 'none', borderBottom: tab === t.key ? '2px solid #E1306C' : '2px solid transparent', background: 'none', cursor: 'pointer', color: tab === t.key ? '#111' : '#737373', fontFamily: 'inherit', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>
+            {t.label}
           </button>
         ))}
       </div>
 
-      <div className="max-w-2xl mx-auto p-4">
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 32px' }}>
 
-        {/* サロン情報 */}
+        {/* SALON INFO TAB */}
         {tab === 'salon' && (
-          <div className="space-y-4">
+          <div>
             {salon && (
-              <div className="bg-white rounded-xl shadow p-4">
-                <h2 className="font-bold text-lg mb-3">📸 サロン画像</h2>
-                <div className="mb-4">
-                  <label className="text-xs font-bold text-gray-600 block mb-2">トップ画像（1枚）</label>
-                  {salon.top_image && <img src={salon.top_image} alt="" className="w-full h-40 object-cover rounded-lg mb-2" />}
+              <div style={card}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>サロン画像</div>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={labelStyle}>トップ画像（1枚）</label>
+                  {salon.top_image && <img src={salon.top_image} alt="" style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 10, marginBottom: 8 }} />}
                   <button onClick={() => topImageRef.current?.click()} disabled={uploading}
-                    className="w-full border-2 border-dashed border-pink-300 text-pink-400 py-3 rounded-lg text-sm font-bold">
-                    {uploading ? 'アップロード中...' : salon.top_image ? '🔄 変更する' : '＋ トップ画像を追加'}
+                    style={{ width: '100%', border: '1.5px dashed #DBDBDB', background: '#FAFAFA', borderRadius: 10, padding: '12px', fontSize: 12, fontWeight: 700, color: '#737373', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {uploading ? 'アップロード中...' : salon.top_image ? '変更する' : '+ トップ画像を追加'}
                   </button>
-                  <input ref={topImageRef} type="file" accept="image/*" className="hidden" onChange={handleTopImageUpload} />
+                  <input ref={topImageRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleTopImageUpload} />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-gray-600 block mb-2">店内・サロン画像（複数可）</label>
+                  <label style={labelStyle}>店内・サロン画像（複数可）</label>
                   {(salon.gallery_images || []).length > 0 && (
-                    <div className="grid grid-cols-3 gap-2 mb-2">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 8 }}>
                       {(salon.gallery_images || []).map((url: string, i: number) => (
-                        <div key={i} className="relative">
-                          <img src={url} alt="" className="w-full h-24 object-cover rounded-lg" />
-                          <button onClick={() => deleteGalleryImage(url)}
-                            className="absolute top-1 right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">×</button>
+                        <div key={i} style={{ position: 'relative' }}>
+                          <img src={url} alt="" style={{ width: '100%', height: 96, objectFit: 'cover', borderRadius: 8 }} />
+                          <button onClick={() => deleteGalleryImage(url)} style={{ position: 'absolute', top: 4, right: 4, background: '#EF5350', color: 'white', border: 'none', width: 20, height: 20, borderRadius: '50%', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
                         </div>
                       ))}
                     </div>
                   )}
                   <button onClick={() => galleryRef.current?.click()} disabled={uploading}
-                    className="w-full border-2 border-dashed border-pink-300 text-pink-400 py-3 rounded-lg text-sm font-bold">
-                    {uploading ? 'アップロード中...' : '＋ 画像を追加（複数選択可）'}
+                    style={{ width: '100%', border: '1.5px dashed #DBDBDB', background: '#FAFAFA', borderRadius: 10, padding: '12px', fontSize: 12, fontWeight: 700, color: '#737373', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {uploading ? 'アップロード中...' : '+ 画像を追加（複数可）'}
                   </button>
-                  <input ref={galleryRef} type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryUpload} />
+                  <input ref={galleryRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleGalleryUpload} />
                 </div>
               </div>
             )}
 
-            <div className="bg-white rounded-xl shadow p-4">
-              <h2 className="font-bold text-lg mb-4">サロン情報の{salon ? '編集' : '登録'}</h2>
-              <div className="mb-3">
-                <label className="text-xs font-bold text-gray-600">サロン名 *</label>
-                <input value={salonForm.name} onChange={e => setSalonForm({ ...salonForm, name: e.target.value })}
-                  placeholder="例：SALON de BEAUTÉ" className="w-full border rounded-lg p-2 mt-1 text-sm" />
+            <div style={card}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>サロン情報の{salon ? '編集' : '登録'}</div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>サロン名 *</label>
+                <input value={salonForm.name} onChange={e => setSalonForm({ ...salonForm, name: e.target.value })} placeholder="例：SALON de BEAUTÉ" style={inputStyle} />
               </div>
-              <div className="mb-3">
-                <label className="text-xs font-bold text-gray-600">ジャンル *</label>
-                <select value={salonForm.genre} onChange={e => setSalonForm({ ...salonForm, genre: e.target.value })}
-                  className="w-full border rounded-lg p-2 mt-1 text-sm">
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>ジャンル *</label>
+                <select value={salonForm.genre} onChange={e => setSalonForm({ ...salonForm, genre: e.target.value })} style={{ ...inputStyle }}>
                   {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
                 </select>
               </div>
-              <div className="mb-3">
-                <label className="text-xs font-bold text-gray-600">都道府県 *</label>
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>都道府県 *</label>
                 <select value={salonForm.prefecture}
-                  onChange={e => {
-                    const pref = e.target.value
-                    const areas = getAreasForPref(pref)
-                    setSalonForm({ ...salonForm, prefecture: pref, area: areas[0] || '' })
-                  }}
-                  className="w-full border rounded-lg p-2 mt-1 text-sm">
+                  onChange={e => { const p = e.target.value; const areas = getAreasForPref(p); setSalonForm({ ...salonForm, prefecture: p, area: areas[0] || '' }) }}
+                  style={{ ...inputStyle }}>
                   {Object.entries(REGIONS).map(([region, prefs]) => (
                     <optgroup key={region} label={region}>
                       {Object.keys(prefs).map(p => <option key={p} value={p}>{p}</option>)}
@@ -361,10 +327,9 @@ export default function DashboardPage() {
                   ))}
                 </select>
               </div>
-              <div className="mb-3">
-                <label className="text-xs font-bold text-gray-600">エリア *</label>
-                <select value={salonForm.area} onChange={e => setSalonForm({ ...salonForm, area: e.target.value })}
-                  className="w-full border rounded-lg p-2 mt-1 text-sm">
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>エリア *</label>
+                <select value={salonForm.area} onChange={e => setSalonForm({ ...salonForm, area: e.target.value })} style={{ ...inputStyle }}>
                   {getAreasForPref(salonForm.prefecture).map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
@@ -372,188 +337,167 @@ export default function DashboardPage() {
                 { key: 'address', label: '住所 *', placeholder: '東京都渋谷区渋谷1-1-1' },
                 { key: 'nearest_station', label: '最寄り駅', placeholder: '渋谷駅' },
                 { key: 'phone', label: '電話番号', placeholder: '03-xxxx-xxxx' },
-              ].map(field => (
-                <div key={field.key} className="mb-3">
-                  <label className="text-xs font-bold text-gray-600">{field.label}</label>
-                  <input value={(salonForm as any)[field.key]}
-                    onChange={e => setSalonForm({ ...salonForm, [field.key]: e.target.value })}
-                    placeholder={field.placeholder} className="w-full border rounded-lg p-2 mt-1 text-sm" />
+              ].map(f => (
+                <div key={f.key} style={{ marginBottom: 14 }}>
+                  <label style={labelStyle}>{f.label}</label>
+                  <input value={(salonForm as any)[f.key]} onChange={e => setSalonForm({ ...salonForm, [f.key]: e.target.value })} placeholder={f.placeholder} style={inputStyle} />
                 </div>
               ))}
-              <div className="mb-3">
-                <label className="text-xs font-bold text-gray-600">説明文</label>
-                <textarea value={salonForm.description}
-                  onChange={e => setSalonForm({ ...salonForm, description: e.target.value })}
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>説明文</label>
+                <textarea value={salonForm.description} onChange={e => setSalonForm({ ...salonForm, description: e.target.value })}
                   placeholder="サロンの特徴・アピールポイント..."
-                  className="w-full border rounded-lg p-2 mt-1 text-sm h-24 resize-none" />
+                  style={{ ...inputStyle, height: 90, resize: 'none' as any }} />
               </div>
-              <div className="mb-4">
-                <label className="text-xs font-bold text-gray-600">予約スロット間隔</label>
-                <select value={salonForm.slot_interval}
-                  onChange={e => setSalonForm({ ...salonForm, slot_interval: parseInt(e.target.value) })}
-                  className="w-full border rounded-lg p-2 mt-1 text-sm">
+              <div style={{ marginBottom: 20 }}>
+                <label style={labelStyle}>予約スロット間隔</label>
+                <select value={salonForm.slot_interval} onChange={e => setSalonForm({ ...salonForm, slot_interval: parseInt(e.target.value) })} style={{ ...inputStyle }}>
                   <option value={15}>15分間隔</option>
                   <option value={30}>30分間隔</option>
                   <option value={60}>60分間隔</option>
                 </select>
               </div>
               <button onClick={saveSalon} disabled={saving}
-                className="w-full bg-pink-500 text-white py-3 rounded-lg font-bold disabled:opacity-50">
-                {saving ? '保存中...' : salon ? '✅ 更新する' : '✅ 登録する'}
+                style={{ width: '100%', background: grad, color: 'white', border: 'none', padding: 13, borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: saving ? 0.6 : 1 }}>
+                {saving ? '保存中...' : salon ? '更新する' : '登録する'}
               </button>
             </div>
           </div>
         )}
 
-        {/* メニュー */}
+        {/* MENUS TAB */}
         {tab === 'menus' && (
           <div>
-            <div className="bg-white rounded-xl shadow p-4 mb-4">
-              <h2 className="font-bold text-lg mb-3">メニューを追加</h2>
-              <input value={menuForm.name} onChange={e => setMenuForm({ ...menuForm, name: e.target.value })}
-                placeholder="メニュー名（例：カット＋カラー）*" className="w-full border rounded-lg p-2 mb-2 text-sm" />
-              <textarea value={menuForm.description}
-                onChange={e => setMenuForm({ ...menuForm, description: e.target.value })}
-                placeholder="メニューの説明（例：シャンプー・ブロー込み。髪質に合わせたカラーをご提案します）"
-                className="w-full border rounded-lg p-2 mb-2 text-sm h-16 resize-none" />
-              <div className="flex gap-2 mb-3">
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500">料金（円）*</label>
-                  <input value={menuForm.price} onChange={e => setMenuForm({ ...menuForm, price: e.target.value })}
-                    placeholder="5000" type="number" className="w-full border rounded-lg p-2 text-sm" />
+            <div style={card}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>メニューを追加</div>
+              <div style={{ marginBottom: 10 }}>
+                <input value={menuForm.name} onChange={e => setMenuForm({ ...menuForm, name: e.target.value })} placeholder="メニュー名 *" style={inputStyle} />
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <textarea value={menuForm.description} onChange={e => setMenuForm({ ...menuForm, description: e.target.value })}
+                  placeholder="メニューの説明（任意）"
+                  style={{ ...inputStyle, height: 64, resize: 'none' as any }} />
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ ...labelStyle, marginBottom: 4 }}>料金（円）*</label>
+                  <input value={menuForm.price} onChange={e => setMenuForm({ ...menuForm, price: e.target.value })} placeholder="5000" type="number" style={inputStyle} />
                 </div>
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500">所要時間（分）*</label>
-                  <input value={menuForm.duration} onChange={e => setMenuForm({ ...menuForm, duration: e.target.value })}
-                    placeholder="60" type="number" className="w-full border rounded-lg p-2 text-sm" />
+                <div style={{ flex: 1 }}>
+                  <label style={{ ...labelStyle, marginBottom: 4 }}>所要時間（分）*</label>
+                  <input value={menuForm.duration} onChange={e => setMenuForm({ ...menuForm, duration: e.target.value })} placeholder="60" type="number" style={inputStyle} />
                 </div>
               </div>
-              <button onClick={addMenu} className="w-full bg-pink-500 text-white py-2 rounded-lg font-bold text-sm">＋ 追加する</button>
+              <button onClick={addMenu} style={{ width: '100%', background: grad, color: 'white', border: 'none', padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>+ 追加する</button>
             </div>
-            <div className="bg-white rounded-xl shadow p-4">
-              <h2 className="font-bold text-lg mb-3">登録済みメニュー（{menus.length}件）</h2>
-              {menus.length === 0
-                ? <p className="text-gray-400 text-sm text-center py-4">メニューがまだありません</p>
+
+            <div style={card}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>登録済みメニュー（{menus.length}件）</div>
+              {menus.length === 0 ? <div style={{ textAlign: 'center', color: '#737373', padding: '20px 0', fontSize: 13 }}>メニューがまだありません</div>
                 : menus.map(menu => (
-                  <div key={menu.id} className="flex justify-between items-start p-3 border rounded-lg mb-2">
-                    <div className="flex-1">
-                      <p className="font-bold text-sm">{menu.name}</p>
-                      {menu.description && <p className="text-xs text-gray-400 mt-0.5">{menu.description}</p>}
-                      <p className="text-xs text-gray-500 mt-1">¥{menu.price.toLocaleString()} / {menu.duration}分</p>
+                  <div key={menu.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '12px 0', borderBottom: '1px solid #DBDBDB' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700 }}>{menu.name}</div>
+                      {menu.description && <div style={{ fontSize: 11, color: '#737373', marginTop: 2, lineHeight: 1.5 }}>{menu.description}</div>}
+                      <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4, ...gradText }}>¥{menu.price.toLocaleString()}&nbsp;&nbsp;<span style={{ fontSize: 11, color: '#737373', background: 'none', WebkitTextFillColor: '#737373' }}>{menu.duration}分</span></div>
                     </div>
-                    <button onClick={() => deleteMenu(menu.id)} className="text-red-400 text-xs px-2 py-1 border border-red-200 rounded ml-2 flex-shrink-0">削除</button>
+                    <button onClick={() => deleteMenu(menu.id)} style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #FFCDD2', background: '#FFEBEE', color: '#C62828', padding: '4px 10px', borderRadius: 8, cursor: 'pointer', marginLeft: 12, flexShrink: 0, fontFamily: 'inherit' }}>削除</button>
                   </div>
                 ))}
             </div>
           </div>
         )}
 
-        {/* スタイリスト */}
+        {/* STYLISTS TAB */}
         {tab === 'stylists' && (
           <div>
-            <div className="bg-white rounded-xl shadow p-4 mb-4">
-              <h2 className="font-bold text-lg mb-3">スタイリストを追加</h2>
-              <div className="mb-3 flex items-center gap-3">
-                <div className="w-16 h-16 rounded-full bg-pink-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {stylistImagePreview
-                    ? <img src={stylistImagePreview} alt="" className="w-full h-full object-cover" />
-                    : <span className="text-2xl">✂️</span>}
+            <div style={card}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>スタイリストを追加</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
+                <div style={{ width: 64, height: 64, borderRadius: '50%', background: stylistImagePreview ? 'none' : 'linear-gradient(135deg,#FBE0EC,#EED9F7)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                  {stylistImagePreview ? <img src={stylistImagePreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 24, fontWeight: 700, ...gradText }}>S</span>}
                 </div>
-                <button onClick={() => document.getElementById('stylist-image-input')?.click()}
-                  className="text-xs border border-pink-300 text-pink-500 px-3 py-2 rounded-lg">写真を選択</button>
-                <input id="stylist-image-input" type="file" accept="image/*" className="hidden"
-                  onChange={e => {
-                    const file = e.target.files?.[0]
-                    if (file) { setStylistImageFile(file); setStylistImagePreview(URL.createObjectURL(file)) }
-                  }} />
+                <button onClick={() => document.getElementById('stylist-img-input')?.click()}
+                  style={{ fontSize: 12, fontWeight: 700, border: '1.5px solid #DBDBDB', background: 'none', padding: '8px 16px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', color: '#262626' }}>
+                  写真を選択
+                </button>
+                <input id="stylist-img-input" type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) { setStylistImageFile(f); setStylistImagePreview(URL.createObjectURL(f)) } }} />
               </div>
-              <input value={stylistForm.name} onChange={e => setStylistForm({ ...stylistForm, name: e.target.value })}
-                placeholder="名前 *" className="w-full border rounded-lg p-2 mb-2 text-sm" />
-              <input value={stylistForm.role} onChange={e => setStylistForm({ ...stylistForm, role: e.target.value })}
-                placeholder="役職（例：トップスタイリスト）" className="w-full border rounded-lg p-2 mb-2 text-sm" />
-              <input value={stylistForm.experience_years} onChange={e => setStylistForm({ ...stylistForm, experience_years: e.target.value })}
-                placeholder="経験年数" type="number" className="w-full border rounded-lg p-2 mb-2 text-sm" />
-              <input value={stylistForm.instagram} onChange={e => setStylistForm({ ...stylistForm, instagram: e.target.value })}
-                placeholder="Instagram ID（@なし）" className="w-full border rounded-lg p-2 mb-2 text-sm" />
+              {[
+                { key: 'name', placeholder: '名前 *' },
+                { key: 'role', placeholder: '役職（例：トップスタイリスト）' },
+                { key: 'experience_years', placeholder: '経験年数', type: 'number' },
+                { key: 'instagram', placeholder: 'Instagram ID（@なし）' },
+              ].map(f => (
+                <div key={f.key} style={{ marginBottom: 10 }}>
+                  <input value={(stylistForm as any)[f.key]} onChange={e => setStylistForm({ ...stylistForm, [f.key]: e.target.value })}
+                    placeholder={f.placeholder} type={f.type || 'text'} style={inputStyle} />
+                </div>
+              ))}
               <textarea value={stylistForm.description} onChange={e => setStylistForm({ ...stylistForm, description: e.target.value })}
-                placeholder="自己紹介・得意なスタイルなど" className="w-full border rounded-lg p-2 mb-3 text-sm h-20 resize-none" />
+                placeholder="自己紹介・得意なスタイルなど"
+                style={{ ...inputStyle, height: 72, resize: 'none' as any, marginBottom: 14 }} />
               <button onClick={addStylist} disabled={uploading}
-                className="w-full bg-pink-500 text-white py-2 rounded-lg font-bold text-sm disabled:opacity-50">
-                {uploading ? 'アップロード中...' : '＋ 追加する'}
+                style={{ width: '100%', background: grad, color: 'white', border: 'none', padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: uploading ? 0.6 : 1 }}>
+                {uploading ? 'アップロード中...' : '+ 追加する'}
               </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow p-4">
-              <h2 className="font-bold text-lg mb-3">登録済みスタイリスト（{stylists.length}人）</h2>
-              {stylists.length === 0
-                ? <p className="text-gray-400 text-sm text-center py-4">スタイリストがまだいません</p>
+            <div style={card}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>登録済みスタイリスト（{stylists.length}人）</div>
+              {stylists.length === 0 ? <div style={{ textAlign: 'center', color: '#737373', padding: '20px 0', fontSize: 13 }}>スタイリストがまだいません</div>
                 : stylists.map(s => (
-                  <div key={s.id} className="border rounded-xl mb-3 overflow-hidden">
-                    <div className="flex justify-between items-start p-3">
-                      <div className="flex items-start gap-3">
-                        <div className="w-12 h-12 rounded-full bg-pink-100 overflow-hidden flex-shrink-0">
-                          {s.image_url
-                            ? <img src={s.image_url} alt="" className="w-full h-full object-cover" />
-                            : <div className="w-full h-full flex items-center justify-center text-xl">✂️</div>}
+                  <div key={s.id} style={{ border: '1px solid #DBDBDB', borderRadius: 12, marginBottom: 12, overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'linear-gradient(135deg,#FBE0EC,#EED9F7)', overflow: 'hidden', flexShrink: 0 }}>
+                          {s.image_url ? <img src={s.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700, ...gradText }}>{s.name?.[0]}</div>}
                         </div>
                         <div>
-                          <p className="font-bold text-sm">{s.name}</p>
-                          {s.role && <p className="text-xs text-pink-500">{s.role}</p>}
-                          {s.experience_years && <p className="text-xs text-gray-500">経験{s.experience_years}年</p>}
+                          <div style={{ fontSize: 14, fontWeight: 700 }}>{s.name}</div>
+                          {s.role && <div style={{ fontSize: 11, fontWeight: 700, ...gradText }}>{s.role}</div>}
+                          {s.experience_years && <div style={{ fontSize: 11, color: '#737373' }}>経験{s.experience_years}年</div>}
                         </div>
                       </div>
-                      <div className="flex gap-1">
+                      <div style={{ display: 'flex', gap: 6 }}>
                         <button onClick={() => editingScheduleStylistId === s.id ? setEditingScheduleStylistId(null) : openScheduleEditor(s.id)}
-                          className="text-xs px-2 py-1 border border-blue-200 text-blue-500 rounded">
-                          {editingScheduleStylistId === s.id ? '閉じる' : '📅 スケジュール'}
+                          style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #DBDBDB', background: 'none', padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: '#262626' }}>
+                          {editingScheduleStylistId === s.id ? '閉じる' : 'スケジュール'}
                         </button>
-                        <button onClick={() => deleteStylist(s.id)} className="text-xs px-2 py-1 border border-red-200 text-red-400 rounded">削除</button>
+                        <button onClick={() => deleteStylist(s.id)} style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #FFCDD2', background: '#FFEBEE', color: '#C62828', padding: '5px 10px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>削除</button>
                       </div>
                     </div>
 
                     {editingScheduleStylistId === s.id && (
-                      <div className="border-t bg-gray-50 p-4">
-                        <p className="text-sm font-bold mb-3">📅 稼働スケジュール設定</p>
+                      <div style={{ borderTop: '1px solid #DBDBDB', background: '#FAFAFA', padding: '16px' }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 12 }}>稼働スケジュール設定</div>
                         {scheduleForm.map((sch, i) => (
-                          <div key={i} className="flex items-center gap-2 mb-2">
-                            <span className={`w-6 text-xs font-bold text-center ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-600'}`}>
-                              {DAY_NAMES[sch.day_of_week]}
-                            </span>
-                            <button onClick={() => {
-                              const updated = [...scheduleForm]
-                              updated[i] = { ...updated[i], is_day_off: !updated[i].is_day_off }
-                              setScheduleForm(updated)
-                            }} className={`text-xs px-2 py-1 rounded font-bold w-12 ${sch.is_day_off ? 'bg-gray-200 text-gray-500' : 'bg-green-100 text-green-700'}`}>
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid #DBDBDB' }}>
+                            <span style={{ width: 20, fontSize: 11, fontWeight: 700, textAlign: 'center', color: i === 0 ? '#E1306C' : i === 6 ? '#5851DB' : '#737373' }}>{DAY_NAMES[sch.day_of_week]}</span>
+                            <button onClick={() => { const u = [...scheduleForm]; u[i] = { ...u[i], is_day_off: !u[i].is_day_off }; setScheduleForm(u) }}
+                              style={{ padding: '4px 12px', borderRadius: 100, border: 'none', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', background: sch.is_day_off ? '#F2F2F2' : '#E8F5E9', color: sch.is_day_off ? '#737373' : '#388E3C' }}>
                               {sch.is_day_off ? '休み' : '稼働'}
                             </button>
                             {!sch.is_day_off && (
                               <>
-                                <input type="time" value={sch.start_time}
-                                  onChange={e => {
-                                    const updated = [...scheduleForm]
-                                    updated[i] = { ...updated[i], start_time: e.target.value }
-                                    setScheduleForm(updated)
-                                  }}
-                                  className="border rounded p-1 text-xs flex-1" />
-                                <span className="text-xs text-gray-400">〜</span>
-                                <input type="time" value={sch.end_time}
-                                  onChange={e => {
-                                    const updated = [...scheduleForm]
-                                    updated[i] = { ...updated[i], end_time: e.target.value }
-                                    setScheduleForm(updated)
-                                  }}
-                                  className="border rounded p-1 text-xs flex-1" />
+                                <input type="time" value={sch.start_time} onChange={e => { const u = [...scheduleForm]; u[i] = { ...u[i], start_time: e.target.value }; setScheduleForm(u) }}
+                                  style={{ border: '1.5px solid #DBDBDB', borderRadius: 8, padding: '4px 8px', fontSize: 11, fontFamily: 'inherit', flex: 1 }} />
+                                <span style={{ fontSize: 11, color: '#737373' }}>〜</span>
+                                <input type="time" value={sch.end_time} onChange={e => { const u = [...scheduleForm]; u[i] = { ...u[i], end_time: e.target.value }; setScheduleForm(u) }}
+                                  style={{ border: '1.5px solid #DBDBDB', borderRadius: 8, padding: '4px 8px', fontSize: 11, fontFamily: 'inherit', flex: 1 }} />
                               </>
                             )}
                           </div>
                         ))}
-                        <div className="flex gap-2 mt-3">
+                        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                           <button onClick={saveSchedule} disabled={scheduleSaving}
-                            className="flex-1 bg-pink-500 text-white py-2 rounded-lg text-sm font-bold disabled:opacity-50">
-                            {scheduleSaving ? '保存中...' : '✅ 保存する'}
+                            style={{ flex: 1, background: grad, color: 'white', border: 'none', padding: 10, borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: scheduleSaving ? 0.6 : 1 }}>
+                            {scheduleSaving ? '保存中...' : '保存する'}
                           </button>
                           <button onClick={() => setEditingScheduleStylistId(null)}
-                            className="flex-1 border border-gray-300 text-gray-500 py-2 rounded-lg text-sm">
+                            style={{ flex: 1, border: '1.5px solid #DBDBDB', background: 'none', padding: 10, borderRadius: 10, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#737373' }}>
                             キャンセル
                           </button>
                         </div>
@@ -565,29 +509,32 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 予約一覧 */}
+        {/* RESERVATIONS TAB */}
         {tab === 'reservations' && (
-          <div className="bg-white rounded-xl shadow p-4">
-            <h2 className="font-bold text-lg mb-3">予約一覧（{reservations.length}件）</h2>
-            {reservations.length === 0
-              ? <p className="text-gray-400 text-sm text-center py-4">予約がまだありません</p>
+          <div style={card}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>予約一覧（{reservations.length}件）</div>
+            {reservations.length === 0 ? <div style={{ textAlign: 'center', color: '#737373', padding: '20px 0', fontSize: 13 }}>予約がまだありません</div>
               : reservations.map(res => (
-                <div key={res.id} className="p-3 border rounded-lg mb-2">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className={`text-xs px-2 py-1 rounded-full font-bold ${statusColor[res.status]}`}>
-                      {statusLabel[res.status]}
+                <div key={res.id} style={{ padding: '14px 0', borderBottom: '1px solid #DBDBDB' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100, background: statusConfig[res.status]?.bg, color: statusConfig[res.status]?.color }}>
+                      {statusConfig[res.status]?.label}
                     </span>
-                    <span className="text-xs text-gray-400">{new Date(res.reserved_at).toLocaleString('ja-JP')}</span>
+                    <span style={{ fontSize: 11, color: '#737373' }}>{new Date(res.reserved_at).toLocaleString('ja-JP')}</span>
                   </div>
-                  <p className="text-sm font-bold">{res.menus?.name}</p>
-                  <p className="text-xs text-gray-500">¥{res.menus?.price?.toLocaleString()}</p>
-                  {res.stylists?.name && <p className="text-xs text-gray-400">担当：{res.stylists.name}</p>}
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>{res.menus?.name}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, ...gradText }}>¥{res.menus?.price?.toLocaleString()}</div>
+                  {res.stylists?.name && <div style={{ fontSize: 11, color: '#737373' }}>担当：{res.stylists.name}</div>}
                   {res.status === 'pending' && (
-                    <div className="flex gap-2 mt-2">
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                       <button onClick={() => updateReservationStatus(res.id, 'confirmed')}
-                        className="flex-1 bg-green-100 text-green-700 text-xs py-1 rounded font-bold">✅ 確認する</button>
+                        style={{ flex: 1, background: '#E8F5E9', color: '#388E3C', border: '1.5px solid #A5D6A7', padding: '7px 0', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        承認する
+                      </button>
                       <button onClick={() => updateReservationStatus(res.id, 'cancelled')}
-                        className="flex-1 bg-red-100 text-red-700 text-xs py-1 rounded font-bold">❌ キャンセル</button>
+                        style={{ flex: 1, background: '#FFEBEE', color: '#C62828', border: '1.5px solid #FFCDD2', padding: '7px 0', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        キャンセル
+                      </button>
                     </div>
                   )}
                 </div>

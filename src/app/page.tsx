@@ -7,11 +7,10 @@ import { useRouter } from 'next/navigation'
 import { REGIONS } from '@/lib/areas'
 
 const GENRES = [
-  { key: 'ヘアサロン', label: 'ヘアサロン', icon: '✂️' },
-  { key: 'ネイル・まつげ', label: 'ネイル・まつげ', icon: '💅' },
-  { key: 'リラク・エステ', label: 'リラク・エステ', icon: '💆' },
+  { key: 'ヘアサロン', label: 'ヘアサロン' },
+  { key: 'ネイル・まつげ', label: 'ネイル・まつげ' },
+  { key: 'リラク・エステ', label: 'リラク・エステ' },
 ]
-
 
 export default function HomePage() {
   const [profile, setProfile] = useState<any>(null)
@@ -25,7 +24,6 @@ export default function HomePage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
-  const [showAreaPanel, setShowAreaPanel] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -74,111 +72,131 @@ export default function HomePage() {
 
   const selectArea = (area: string) => {
     setSelectedArea(area)
-    setShowAreaPanel(false)
   }
 
   const clearArea = () => {
     setSelectedRegion('')
     setSelectedPref('')
     setSelectedArea('')
-    setShowAreaPanel(false)
+  }
+
+  const s: any = {
+    header: {
+      background: 'white',
+      borderBottom: '1px solid #DBDBDB',
+      padding: '0 32px',
+      height: 56,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      position: 'sticky' as const,
+      top: 0,
+      zIndex: 100,
+    },
+    logo: {
+      fontSize: 20,
+      fontWeight: 700,
+      background: 'linear-gradient(45deg, #F77737, #E1306C, #833AB4, #5851DB)',
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      backgroundClip: 'text',
+      letterSpacing: '-0.5px',
+    },
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-
-      {/* ヘッダー */}
-      <header className="bg-pink-600 text-white">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-black tracking-tight">💄 BeautyBook</h1>
-            <span className="text-xs bg-pink-400 px-2 py-1 rounded-full">美容サロン予約サイト</span>
-          </div>
-          <div className="flex items-center gap-4 text-sm">
-            <a href="#" className="opacity-75 hover:opacity-100">マイページ</a>
-            <a href="#" className="opacity-75 hover:opacity-100">ヘルプ</a>
-          </div>
-        </div>
-
-        {/* ジャンルナビ */}
-        <div className="border-t border-pink-500">
-          <div className="max-w-6xl mx-auto px-4 flex">
-            {GENRES.map(g => (
-              <button key={g.key} onClick={() => setGenre(g.key)}
-                className={`px-6 py-3 text-sm font-bold transition border-b-2 ${
-                  genre === g.key ? 'border-white text-white' : 'border-transparent text-pink-200 hover:text-white'
-                }`}>
-                {g.icon} {g.label}
-              </button>
-            ))}
-          </div>
+    <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
+      {/* Header */}
+      <header style={s.header}>
+        <div style={s.logo}>Salon de Beauty</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {user ? (
+            <>
+              {profile?.role === 'salon' && (
+                <button onClick={() => router.push('/dashboard')} style={{ background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4)', color: 'white', border: 'none', padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  管理画面
+                </button>
+              )}
+              <Link href="/mypage" style={{ fontSize: 12, color: '#737373', textDecoration: 'none', fontWeight: 500 }}>マイページ</Link>
+              <button onClick={handleLogout} style={{ fontSize: 12, border: '1.5px solid #DBDBDB', background: 'none', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: '#262626' }}>ログアウト</button>
+            </>
+          ) : (
+            <Link href="/auth" style={{ background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', color: 'white', padding: '7px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+              ログイン
+            </Link>
+          )}
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 py-6 flex gap-6">
+      {/* Genre tabs */}
+      <div style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', display: 'flex' }}>
+        {GENRES.map(g => (
+          <button key={g.key} onClick={() => setGenre(g.key)}
+            style={{ padding: '12px 20px', fontSize: 13, fontWeight: 500, border: 'none', borderBottom: genre === g.key ? '2px solid #E1306C' : '2px solid transparent', background: 'none', cursor: 'pointer', color: genre === g.key ? '#111' : '#737373', fontFamily: 'inherit', transition: 'all 0.2s' }}>
+            {g.label}
+          </button>
+        ))}
+      </div>
 
-        {/* メインコンテンツ */}
-        <div className="flex-1">
+      {/* Main layout */}
+      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '24px 32px', display: 'grid', gridTemplateColumns: '1fr 300px', gap: 28 }}>
 
-          {/* エリアパネル */}
-          <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-bold text-base">📍 エリアから探す</h2>
+        {/* Left column */}
+        <div>
+          {/* Hero search */}
+          <div style={{ background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', borderRadius: 16, padding: '28px 32px', marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: 'white', marginBottom: 4 }}>美容サロンを探す</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 20 }}>Find your perfect beauty salon</div>
+            <div style={{ display: 'flex', gap: 8, background: 'white', borderRadius: 10, padding: '4px 4px 4px 16px', alignItems: 'center' }}>
+              <input value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="サロン名・キーワードで検索"
+                style={{ flex: 1, border: 'none', fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#111', background: 'none' }} />
+              <button onClick={fetchSalons} style={{ background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4)', color: 'white', border: 'none', padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                検索
+              </button>
+            </div>
+          </div>
+
+          {/* Area panel */}
+          <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: 20, marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em' }}>AREA</div>
               {selectedArea && (
-                <button onClick={clearArea} className="text-xs text-gray-400 hover:text-gray-600">
-                  ✕ クリア
-                </button>
+                <button onClick={clearArea} style={{ fontSize: 11, color: '#737373', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>クリア ×</button>
               )}
             </div>
 
-            {/* 地方ボタン */}
-            <div className="grid grid-cols-4 gap-2 mb-3">
+            {/* Region buttons */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginBottom: 14 }}>
               {Object.keys(REGIONS).map(region => (
-                <button key={region}
-                  onClick={() => {
-                    setSelectedRegion(region === selectedRegion ? '' : region)
-                    setSelectedPref('')
-                    setShowAreaPanel(region !== selectedRegion)
-                  }}
-                  className={`py-2 px-3 rounded text-sm font-bold border transition ${
-                    selectedRegion === region
-                      ? 'bg-pink-600 text-white border-pink-600'
-                      : 'border-gray-200 text-gray-600 hover:border-pink-400 hover:text-pink-600'
-                  }`}>
+                <button key={region} onClick={() => {
+                  if (selectedRegion === region) { setSelectedRegion(''); setSelectedPref('') }
+                  else { setSelectedRegion(region); setSelectedPref('') }
+                }}
+                  style={{ padding: '8px 4px', fontSize: 12, fontWeight: 500, border: selectedRegion === region ? 'none' : '1.5px solid #DBDBDB', borderRadius: 8, background: selectedRegion === region ? 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)' : 'white', cursor: 'pointer', textAlign: 'center', color: selectedRegion === region ? 'white' : '#262626', fontFamily: 'inherit', transition: 'all 0.15s' }}>
                   {region}
                 </button>
               ))}
             </div>
 
-            {/* 都道府県・エリア選択 */}
-            {selectedRegion && REGIONS[selectedRegion] && (
-              <div className="border-t pt-3">
-                {/* 都道府県タブ */}
-                <div className="flex gap-2 mb-3 flex-wrap">
+            {/* Prefecture tabs */}
+            {selectedRegion && (
+              <div style={{ borderTop: '1px solid #DBDBDB', paddingTop: 14 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
                   {Object.keys(REGIONS[selectedRegion]).map(pref => (
-                    <button key={pref}
-                      onClick={() => setSelectedPref(pref)}
-                      className={`px-3 py-1 rounded-full text-xs font-bold border transition ${
-                        selectedPref === pref
-                          ? 'bg-pink-100 text-pink-600 border-pink-400'
-                          : 'border-gray-200 text-gray-500 hover:border-pink-300'
-                      }`}>
+                    <button key={pref} onClick={() => setSelectedPref(pref)}
+                      style={{ padding: '5px 14px', fontSize: 12, border: selectedPref === pref ? 'none' : '1.5px solid #DBDBDB', borderRadius: 100, background: selectedPref === pref ? 'linear-gradient(135deg,#FFF0F5,#F5F0FF)' : 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: selectedPref === pref ? 700 : 400, color: selectedPref === pref ? '#E1306C' : '#737373', boxShadow: selectedPref === pref ? '0 0 0 1.5px #E1306C' : 'none' }}>
                       {pref}
                     </button>
                   ))}
                 </div>
 
-                {/* エリアボタン */}
+                {/* Area chips */}
                 {selectedPref && REGIONS[selectedRegion][selectedPref] && (
-                  <div className="flex flex-wrap gap-2">
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {REGIONS[selectedRegion][selectedPref].map(area => (
-                      <button key={area}
-                        onClick={() => selectArea(area)}
-                        className={`px-3 py-1 rounded-full text-xs border transition ${
-                          selectedArea === area
-                            ? 'bg-pink-600 text-white border-pink-600'
-                            : 'border-gray-200 text-gray-500 hover:border-pink-400 hover:text-pink-600'
-                        }`}>
+                      <button key={area} onClick={() => selectArea(area)}
+                        style={{ padding: '5px 14px', fontSize: 12, border: selectedArea === area ? 'none' : '1.5px solid #DBDBDB', borderRadius: 100, background: selectedArea === area ? 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)' : 'white', cursor: 'pointer', color: selectedArea === area ? 'white' : '#737373', fontFamily: 'inherit', fontWeight: selectedArea === area ? 700 : 400, transition: 'all 0.15s' }}>
                         {area}
                       </button>
                     ))}
@@ -187,149 +205,120 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* 選択中のエリア表示 */}
             {selectedArea && (
-              <div className="mt-3 flex items-center gap-2">
-                <span className="text-xs text-gray-500">選択中：</span>
-                <span className="bg-pink-600 text-white text-xs px-3 py-1 rounded-full font-bold">
-                  📍 {selectedArea}
-                </span>
+              <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 11, color: '#737373' }}>選択中：</span>
+                <span style={{ background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4)', color: 'white', fontSize: 12, fontWeight: 700, padding: '3px 14px', borderRadius: 100 }}>{selectedArea}</span>
               </div>
             )}
           </div>
 
-          {/* キーワード検索 */}
-          <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <div className="flex gap-2">
-              <input
-                placeholder="サロン名・キーワードで検索"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="flex-1 border rounded p-2 text-sm"
-              />
-              <button onClick={fetchSalons}
-                className="bg-pink-600 text-white px-6 py-2 rounded text-sm font-bold">
-                検索
-              </button>
+          {/* Results */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div style={{ fontSize: 13, color: '#737373' }}>
+              <strong style={{ color: '#111', fontWeight: 700 }}>{salons.length}件</strong>のサロン
+              {selectedArea && <span style={{ color: '#E1306C', marginLeft: 4 }}>/ {selectedArea}</span>}
             </div>
-          </div>
-
-          {/* サロン一覧 */}
-          <div className="mb-2 flex justify-between items-center">
-            <p className="text-sm text-gray-600">
-              <span className="font-bold text-gray-900">{salons.length}件</span>
-              {selectedArea && <span className="text-pink-600 ml-1">/ {selectedArea}</span>}
-              のサロンが見つかりました
-            </p>
-            <select className="text-xs border rounded p-1 text-gray-600">
+            <select style={{ border: '1.5px solid #DBDBDB', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontFamily: 'inherit', color: '#262626', background: 'white', cursor: 'pointer' }}>
               <option>おすすめ順</option>
               <option>新着順</option>
             </select>
           </div>
 
+          {/* Salon cards */}
           {salons.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-12 text-center">
-              <p className="text-gray-400 text-lg">サロンが見つかりません</p>
-              <p className="text-gray-300 text-sm mt-1">条件を変えて検索してみてください</p>
+            <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: 48, textAlign: 'center', color: '#737373' }}>
+              サロンが見つかりません。条件を変えて検索してみてください。
             </div>
-          ) : (
-            <div className="space-y-3">
-              {salons.map(salon => (
-                <Link key={salon.id} href={`/salons/${salon.id}`}>
-                  <div className="bg-white rounded-lg shadow hover:shadow-md transition flex overflow-hidden mb-3">
-                    <div className="w-40 h-32 flex-shrink-0 bg-pink-100 flex items-center justify-center overflow-hidden">
-                      {salon.top_image
-                        ? <img src={salon.top_image} alt="" className="w-full h-full object-cover" />
-                        : <span className="text-4xl">
-                            {salon.genre === 'ヘアサロン' ? '✂️' : salon.genre === 'ネイル・まつげ' ? '💅' : '💆'}
-                          </span>}
-                    </div>
-                    <div className="p-4 flex-1">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <span className="text-xs bg-pink-100 text-pink-600 px-2 py-0.5 rounded font-bold">{salon.genre}</span>
-                          <h3 className="font-bold text-base mt-1">{salon.name}</h3>
-                          <p className="text-xs text-gray-500 mt-1">📍 {salon.area}　{salon.address}</p>
-                          {salon.nearest_station && <p className="text-xs text-gray-400">🚃 {salon.nearest_station}駅近</p>}
-                        </div>
-                      </div>
-                      {salon.description && (
-                        <p className="text-xs text-gray-500 mt-2 line-clamp-2">{salon.description}</p>
-                      )}
-                      <div className="mt-2">
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">ネット予約OK</span>
-                      </div>
-                    </div>
+          ) : salons.map(salon => (
+            <Link key={salon.id} href={`/salons/${salon.id}`} style={{ textDecoration: 'none' }}>
+              <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', display: 'flex', overflow: 'hidden', marginBottom: 12, cursor: 'pointer', transition: 'all 0.2s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 0 0 2px #E1306C, 0 8px 24px rgba(225,48,108,0.12)'; (e.currentTarget as HTMLElement).style.borderColor = 'transparent'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = 'none'; (e.currentTarget as HTMLElement).style.borderColor = '#DBDBDB'; (e.currentTarget as HTMLElement).style.transform = 'none' }}>
+                <div style={{ width: 140, flexShrink: 0, background: 'linear-gradient(135deg,#FBE0EC,#EED9F7)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 120, overflow: 'hidden' }}>
+                  {salon.top_image
+                    ? <img src={salon.top_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span style={{ fontSize: 36, fontWeight: 700, background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{salon.name?.[0] || 'S'}</span>}
+                </div>
+                <div style={{ padding: '16px 18px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', background: 'linear-gradient(135deg,#FFF0F5,#F5F0FF)', padding: '2px 10px', borderRadius: 100, marginBottom: 6, width: 'fit-content' }}>
+                    <span style={{ background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{salon.genre}</span>
                   </div>
-                </Link>
-              ))}
-            </div>
-          )}
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 4 }}>{salon.name}</div>
+                  <div style={{ fontSize: 11, color: '#737373', marginBottom: 6, lineHeight: 1.5 }}>
+                    {salon.area}&nbsp;&nbsp;{salon.address}
+                    {salon.nearest_station && <>&nbsp;&nbsp;/&nbsp;&nbsp;{salon.nearest_station}駅近</>}
+                  </div>
+                  {salon.description && (
+                    <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6, flex: 1, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{salon.description}</div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTop: '1px solid #DBDBDB' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', background: '#E8F5E9', color: '#388E3C', borderRadius: 100 }}>ネット予約可</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>予約する →</span>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          ))}
         </div>
 
-        {/* 右カラム */}
-        <div className="w-64 flex-shrink-0 space-y-4">
+        {/* Right column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* ログインエリア */}
-          <div className="bg-white rounded-lg shadow p-4">
+          {/* Login / User widget */}
+          <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: 20 }}>
             {user ? (
               <div>
-                <p className="text-sm font-bold text-gray-800 mb-1">こんにちは！</p>
-                <p className="text-xs text-gray-500 mb-3 truncate">{user.email}</p>
-                {profile?.full_name && (
-                  <p className="text-sm font-bold mb-2">{profile.full_name} さん</p>
-                )}
-                <div className="space-y-2">
-                  <a href="/mypage" className="block text-xs text-pink-600 hover:underline">▶ 予約履歴</a>
-                  <a href="#" className="block text-xs text-pink-600 hover:underline">▶ お気に入りサロン</a>
-                  <a href="#" className="block text-xs text-pink-600 hover:underline">▶ プロフィール編集</a>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>ログイン中</div>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 2 }}>こんにちは</div>
+                <div style={{ fontSize: 11, color: '#737373', marginBottom: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {[{ label: '予約履歴', href: '/mypage' }, { label: 'お気に入りサロン', href: '#' }, { label: 'プロフィール編集', href: '#' }].map(item => (
+                    <a key={item.label} href={item.href} style={{ fontSize: 12, color: '#111', display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid #DBDBDB', textDecoration: 'none' }}>
+                      {item.label}<span style={{ color: '#737373' }}>›</span>
+                    </a>
+                  ))}
                 </div>
-                <button onClick={handleLogout}
-                  className="w-full mt-3 border border-gray-300 text-gray-500 text-xs py-2 rounded">
+                <button onClick={handleLogout} style={{ width: '100%', marginTop: 14, padding: 9, fontSize: 12, border: '1.5px solid #DBDBDB', background: 'none', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', color: '#737373' }}>
                   ログアウト
                 </button>
               </div>
             ) : (
               <div>
-                <p className="text-sm font-bold text-center mb-3">ログイン</p>
-                <input type="email" placeholder="メールアドレス"
-                  value={email} onChange={e => setEmail(e.target.value)}
-                  className="w-full border rounded p-2 text-xs mb-2" />
-                <input type="password" placeholder="パスワード"
-                  value={password} onChange={e => setPassword(e.target.value)}
-                  className="w-full border rounded p-2 text-xs mb-2" />
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>ログイン</div>
+                <input type="email" placeholder="メールアドレス" value={email} onChange={e => setEmail(e.target.value)}
+                  style={{ width: '100%', border: '1.5px solid #DBDBDB', borderRadius: 10, padding: '10px 14px', fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#111', marginBottom: 8, background: '#FAFAFA' }} />
+                <input type="password" placeholder="パスワード" value={password} onChange={e => setPassword(e.target.value)}
+                  style={{ width: '100%', border: '1.5px solid #DBDBDB', borderRadius: 10, padding: '10px 14px', fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#111', marginBottom: 8, background: '#FAFAFA' }} />
                 <button onClick={handleLogin} disabled={loginLoading}
-                  className="w-full bg-pink-600 text-white py-2 rounded text-sm font-bold disabled:opacity-50">
+                  style={{ width: '100%', background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', color: 'white', border: 'none', padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: loginLoading ? 0.6 : 1 }}>
                   {loginLoading ? '...' : 'ログイン'}
                 </button>
-                <div className="mt-2 text-center">
-                  <Link href="/auth" className="text-xs text-pink-600 hover:underline">新規会員登録はこちら</Link>
-                </div>
-                <div className="mt-2 text-center">
-                  <Link href="/auth" className="text-xs text-gray-400 hover:underline">サロン登録はこちら</Link>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
+                  <Link href="/auth" style={{ fontSize: 11, color: '#833AB4', fontWeight: 500, textDecoration: 'none' }}>新規会員登録</Link>
+                  <Link href="/auth" style={{ fontSize: 11, color: '#737373', textDecoration: 'none' }}>サロン登録</Link>
                 </div>
               </div>
             )}
           </div>
 
-          {/* おすすめ特集 */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm font-bold mb-3">✨ 特集・キャンペーン</p>
-            <div className="space-y-2">
-              {['初回限定クーポン', '週末空き枠あり', '新規オープン'].map(t => (
-                <div key={t} className="bg-pink-50 rounded p-2 text-xs text-pink-700 font-bold cursor-pointer hover:bg-pink-100 transition">
-                  ▶ {t}
-                </div>
-              ))}
-            </div>
+          {/* Campaign */}
+          <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: 20 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>特集・キャンペーン</div>
+            {['初回限定プラン特集', '週末の空き枠あり', '新規オープンサロン'].map(t => (
+              <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: '1px solid #DBDBDB', fontSize: 12, cursor: 'pointer', color: '#262626' }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'linear-gradient(45deg,#F77737,#E1306C)', flexShrink: 0, display: 'block' }}></span>
+                {t}
+              </div>
+            ))}
           </div>
 
-          {/* サロン掲載案内 */}
-          <div className="bg-gradient-to-br from-pink-500 to-pink-700 rounded-lg shadow p-4 text-white">
-            <p className="text-sm font-bold mb-1">💅 サロン掲載をお考えの方</p>
-            <p className="text-xs opacity-80 mb-3">HPBより低コストで掲載できます</p>
-            <Link href="/auth"
-              className="block text-center bg-white text-pink-600 text-xs font-bold py-2 rounded hover:bg-pink-50 transition">
+          {/* CTA */}
+          <div style={{ background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', borderRadius: 16, padding: '24px 20px' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.1em', marginBottom: 6 }}>FOR SALON OWNERS</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'white', lineHeight: 1.4, marginBottom: 6 }}>サロン掲載を<br />はじめませんか</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, marginBottom: 16 }}>大手より低コストで質の高い顧客と繋がれます。</div>
+            <Link href="/auth" style={{ display: 'block', background: 'white', color: '#E1306C', padding: 10, borderRadius: 10, fontSize: 12, fontWeight: 700, textAlign: 'center', textDecoration: 'none' }}>
               無料で掲載を始める
             </Link>
           </div>

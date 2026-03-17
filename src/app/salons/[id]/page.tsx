@@ -212,9 +212,9 @@ export default function SalonDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-pink-500 text-white p-4 flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-white text-xl">←</button>
-        <h1 className="text-lg font-bold flex-1">{salon.name}</h1>
+      <header style={{ background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', padding: '0 16px', height: 52, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={() => router.back()} style={{ color: 'white', fontSize: 20, background: 'none', border: 'none', cursor: 'pointer' }}>←</button>
+        <h1 style={{ flex: 1, fontSize: 16, fontWeight: 700, color: 'white' }}>{salon.name}</h1>
         <BlockButton salonId={id} />
       </header>
 
@@ -309,9 +309,8 @@ export default function SalonDetailPage() {
               ].map((s, i) => (
                 <div key={s.n} className="flex items-center flex-1">
                   <div className="flex flex-col items-center flex-1">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                      step === s.n ? 'bg-pink-500 text-white' : step > s.n ? 'bg-pink-200 text-pink-700' : 'bg-gray-100 text-gray-400'
-                    }`}>{s.n}</div>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${step === s.n ? 'bg-pink-500 text-white' : step > s.n ? 'bg-pink-200 text-pink-700' : 'bg-gray-100 text-gray-400'
+                      }`}>{s.n}</div>
                     <span className={`text-xs mt-0.5 ${step === s.n ? 'text-pink-500 font-bold' : 'text-gray-400'}`}>{s.label}</span>
                   </div>
                   {i < 3 && <div className={`h-0.5 flex-1 -mt-5 ${step > s.n ? 'bg-pink-300' : 'bg-gray-200'}`} />}
@@ -454,13 +453,12 @@ export default function SalonDetailPage() {
                               <button
                                 onClick={() => { if (day.available) { setSelectedDate(day.date); setSelectedTime('') } }}
                                 disabled={!day.available}
-                                className={`w-full h-full flex flex-col items-center justify-center rounded-lg text-xs font-bold transition ${
-                                  selectedDate === day.date
+                                className={`w-full h-full flex flex-col items-center justify-center rounded-lg text-xs font-bold transition ${selectedDate === day.date
                                     ? 'bg-pink-500 text-white shadow'
                                     : day.available
                                       ? 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
                                       : 'text-gray-300 cursor-not-allowed'
-                                }`}>
+                                  }`}>
                                 <span>{parseInt(day.date.split('-')[2])}</span>
                                 <span className="text-xs leading-none">{day.available ? '○' : '×'}</span>
                               </button>
@@ -497,13 +495,12 @@ export default function SalonDetailPage() {
                                 <button key={slot}
                                   onClick={() => available && setSelectedTime(slot)}
                                   disabled={!available}
-                                  className={`py-2 rounded-lg text-sm font-bold border transition ${
-                                    isSelected
+                                  className={`py-2 rounded-lg text-sm font-bold border transition ${isSelected
                                       ? 'bg-pink-500 text-white border-pink-500'
                                       : available
                                         ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
                                         : 'border-gray-200 text-gray-300 bg-gray-50 cursor-not-allowed'
-                                  }`}>
+                                    }`}>
                                   {slot}
                                 </button>
                               )

@@ -3,96 +3,108 @@ export const dynamic = 'force-dynamic'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function AuthPage() {
-  const [tab, setTab] = useState<'user' | 'salon'>('user')
-  const [isLogin, setIsLogin] = useState(true)
+  const router = useRouter()
+  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [role, setRole] = useState<'user' | 'salon'>('user')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
 
-  const reset = () => { setEmail(''); setPassword(''); setIsLogin(true) }
-
-  const handleAuth = async () => {
+  const handleSubmit = async () => {
+    if (!email || !password) { alert('メールアドレスとパスワードを入力してください'); return }
     setLoading(true)
     try {
-      if (isLogin) {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) throw error
-        // ログイン後にroleを確認してリダイレクト
-        const { data: prof } = await supabase.from('profiles').select('role').eq('id', data.user.id).single()
-        if (prof?.role === 'salon') {
-          router.push('/dashboard')
-        } else {
-          router.push('/')
-        }
-      } else {
+      if (mode === 'register') {
         const { data, error } = await supabase.auth.signUp({ email, password })
         if (error) throw error
         if (data.user) {
-          await supabase.from('profiles').upsert({
-            id: data.user.id,
-            username: email,
-            role: tab
-          })
+          await supabase.from('profiles').upsert({ id: data.user.id, username: email, role })
+          alert('登録完了！確認メールをご確認ください。')
         }
-        alert('登録完了！')
-        if (tab === 'salon') router.push('/dashboard')
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) throw error
+        const { data: prof } = await supabase.from('profiles').select('role').eq('id', data.user.id).single()
+        if (prof?.role === 'salon') router.push('/dashboard')
         else router.push('/')
       }
     } catch (err: any) {
       alert(err.message)
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
+  }
+
+  const gradStyle = {
+    background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
   }
 
   return (
-    <div className="min-h-screen bg-pink-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-lg w-full max-w-md">
+    <div style={{ minHeight: '100vh', background: '#FAFAFA', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <header style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Link href="/" style={{ fontSize: 20, fontWeight: 700, textDecoration: 'none', ...gradStyle }}>Salon de Beauty</Link>
+      </header>
 
-        {/* タブ切替 */}
-        <div className="flex rounded-t-2xl overflow-hidden">
-          <button onClick={() => { setTab('user'); reset() }}
-            className={`flex-1 py-4 text-sm font-bold transition ${
-              tab === 'user' ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-400'
-            }`}>
-            👤 ユーザー
-          </button>
-          <button onClick={() => { setTab('salon'); reset() }}
-            className={`flex-1 py-4 text-sm font-bold transition ${
-              tab === 'salon' ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-400'
-            }`}>
-            💅 サロン
-          </button>
-        </div>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div style={{ width: '100%', maxWidth: 400 }}>
 
-        <div className="p-8">
-          <h1 className="text-xl font-bold text-center text-gray-800 mb-1">
-            {tab === 'user' ? 'ユーザー' : 'サロン'}
-            {isLogin ? 'ログイン' : '新規登録'}
-          </h1>
-          <p className="text-xs text-center text-gray-400 mb-6">
-            {tab === 'salon' ? 'ログイン後、管理画面へ移動します' : '予約・ブロック機能が使えます'}
-          </p>
+          {/* Logo */}
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <div style={{ fontSize: 28, fontWeight: 700, ...gradStyle, marginBottom: 8 }}>Salon de Beauty</div>
+            <div style={{ fontSize: 13, color: '#737373' }}>美容サロン予約サイト</div>
+          </div>
 
-          <input type="email" placeholder="メールアドレス"
-            value={email} onChange={e => setEmail(e.target.value)}
-            className="w-full border rounded-lg p-3 mb-3 text-sm" />
-          <input type="password" placeholder="パスワード"
-            value={password} onChange={e => setPassword(e.target.value)}
-            className="w-full border rounded-lg p-3 mb-6 text-sm" />
+          {/* Card */}
+          <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: 28 }}>
+            {/* Mode toggle */}
+            <div style={{ display: 'flex', background: '#FAFAFA', borderRadius: 10, padding: 4, marginBottom: 24 }}>
+              {(['login', 'register'] as const).map(m => (
+                <button key={m} onClick={() => setMode(m)}
+                  style={{ flex: 1, padding: '8px 0', fontSize: 13, fontWeight: 700, border: 'none', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', background: mode === m ? 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)' : 'transparent', color: mode === m ? 'white' : '#737373', transition: 'all 0.2s' }}>
+                  {m === 'login' ? 'ログイン' : '新規登録'}
+                </button>
+              ))}
+            </div>
 
-          <button onClick={handleAuth} disabled={loading}
-            className="w-full bg-pink-500 text-white py-3 rounded-lg font-bold disabled:opacity-50">
-            {loading ? '処理中...' : isLogin ? 'ログイン' : '登録する'}
-          </button>
+            {/* Role toggle (register only) */}
+            {mode === 'register' && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', marginBottom: 8 }}>アカウント種別</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[{ key: 'user', label: '一般ユーザー' }, { key: 'salon', label: 'サロン' }].map(r => (
+                    <button key={r.key} onClick={() => setRole(r.key as any)}
+                      style={{ flex: 1, padding: '9px 0', fontSize: 13, fontWeight: 500, border: role === r.key ? 'none' : '1.5px solid #DBDBDB', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', background: role === r.key ? 'linear-gradient(135deg,#FFF0F5,#F5F0FF)' : 'white', color: role === r.key ? '#E1306C' : '#737373', boxShadow: role === r.key ? '0 0 0 1.5px #E1306C' : 'none', transition: 'all 0.15s' }}>
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          <button onClick={() => setIsLogin(!isLogin)}
-            className="w-full mt-4 text-pink-500 underline text-sm">
-            {isLogin ? '新規登録はこちら' : 'ログインはこちら'}
-          </button>
+            <div style={{ marginBottom: 12 }}>
+              <input type="email" placeholder="メールアドレス" value={email} onChange={e => setEmail(e.target.value)}
+                style={{ width: '100%', border: '1.5px solid #DBDBDB', borderRadius: 10, padding: '11px 14px', fontSize: 14, fontFamily: 'inherit', outline: 'none', color: '#111', background: '#FAFAFA' }} />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <input type="password" placeholder="パスワード" value={password} onChange={e => setPassword(e.target.value)}
+                style={{ width: '100%', border: '1.5px solid #DBDBDB', borderRadius: 10, padding: '11px 14px', fontSize: 14, fontFamily: 'inherit', outline: 'none', color: '#111', background: '#FAFAFA' }} />
+            </div>
+
+            <button onClick={handleSubmit} disabled={loading}
+              style={{ width: '100%', background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', color: 'white', border: 'none', padding: 13, borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: loading ? 0.6 : 1 }}>
+              {loading ? '処理中...' : mode === 'login' ? 'ログイン' : '登録する'}
+            </button>
+          </div>
+
+          <div style={{ textAlign: 'center', marginTop: 20 }}>
+            <Link href="/" style={{ fontSize: 13, color: '#737373', textDecoration: 'none' }}>トップページに戻る</Link>
+          </div>
         </div>
       </div>
     </div>
