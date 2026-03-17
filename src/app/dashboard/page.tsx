@@ -41,9 +41,10 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [uploading, setUploading] = useState(false)
-    const [tab, setTab] = useState<'salon' | 'menus' | 'stylists' | 'reservations'>('salon')
-
+    const [tab, setTab] = useState<'salon' | 'menus' | 'stylists' | 'reservations' | 'users'>('salon')
+    const [salonUsers, setSalonUsers] = useState<any[]>([])
     const [blocks, setBlocks] = useState<any[]>([])
+
 
     const topImageRef = useRef<HTMLInputElement>(null)
     const galleryRef = useRef<HTMLInputElement>(null)
@@ -86,6 +87,31 @@ export default function DashboardPage() {
                 .select('*, menus(name, price), stylists(name)').eq('salon_id', salonData.id)
                 .order('reserved_at', { ascending: false })
             setReservations(resData || [])
+
+            
+
+            // 予約ユーザーを集計
+            if (resData && resData.length > 0) {
+                const userMap: Record<string, any> = {}
+                for (const res of resData) {
+                    if (!userMap[res.user_id]) {
+                        userMap[res.user_id] = {
+                            user_id: res.user_id,
+                            reservations: [],
+                        }
+                    }
+                    userMap[res.user_id].reservations.push(res)
+                }
+                const userIds = Object.keys(userMap)
+                const { data: profileData } = await supabase
+                    .from('profiles')
+                    .select('id, username')
+                    .in('id', userIds)
+                for (const prof of profileData || []) {
+                    if (userMap[prof.id]) userMap[prof.id].email = prof.username
+                }
+                setSalonUsers(Object.values(userMap))
+            }
 
             const { data: blockData } = await supabase
                 .from('blocks')
@@ -269,6 +295,7 @@ export default function DashboardPage() {
         { key: 'menus', label: 'メニュー' },
         { key: 'stylists', label: 'スタイリスト' },
         { key: 'reservations', label: '予約管理' },
+        { key: 'users', label: 'ユーザー管理' },
     ]
 
     const card: any = { background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: 24, marginBottom: 16 }
@@ -546,6 +573,7 @@ export default function DashboardPage() {
                         <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>予約一覧（{reservations.length}件）</div>
                         {reservations.length === 0 ? <div style={{ textAlign: 'center', color: '#737373', padding: '20px 0', fontSize: 13 }}>予約がまだありません</div>
                             : reservations.map(res => (
+
                                 <div key={res.id} style={{ padding: '14px 0', borderBottom: '1px solid #DBDBDB' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                                         <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100, background: statusConfig[res.status]?.bg, color: statusConfig[res.status]?.color }}>
@@ -590,6 +618,123 @@ export default function DashboardPage() {
                             ))}
                     </div>
                 )}
+                {/* USERS TAB */}
+                {tab === 'users' && (
+                    <div style={card}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>
+                            利用ユーザー一覧（{salonUsers.length}人）
+                        </div>
+
+                        {salonUsers.length === 0 ? (
+                            <div style={{ textAlign: 'center', color: '#737373', padding: '32px 0', fontSize: 13 }}>
+                                予約履歴のあるユーザーはいません
+                            </div>
+                        ) : salonUsers.map(u => {
+                            const isBlocked = blocks.some(b => b.blocked_id === u.user_id)
+                            const totalAmount = u.reservations
+                                .filter((r: any) => r.status === 'completed')
+                                .reduce((sum: number, r: any) => sum + (r.menus?.price || 0), 0)
+                            const lastReservation = u.reservations
+                                .sort((a: any, b: any) => new Date(b.reserved_at).getTime() - new Date(a.reserved_at).getTime())[0]
+                            const completedCount = u.reservations.filter((r: any) => r.status === 'completed').length
+
+                            return (
+                                <div key={u.user_id} style={{ padding: '16px 0', borderBottom: '1px solid #DBDBDB' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <div style={{ flex: 1 }}>
+                                            {/* メールアドレス */}
+                                            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>
+                                                {u.email || u.user_id}
+                                            </div>
+
+                                            {/* 統計 */}
+                                            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                                <div style={{ fontSize: 11, color: '#737373' }}>
+                                                    予約回数：<span style={{ fontWeight: 700, color: '#111' }}>{u.reservations.length}回</span>
+                                                </div>
+                                                <div style={{ fontSize: 11, color: '#737373' }}>
+                                                    来店完了：<span style={{ fontWeight: 700, color: '#111' }}>{completedCount}回</span>
+                                                </div>
+                                                {totalAmount > 0 && (
+                                                    <div style={{ fontSize: 11, color: '#737373' }}>
+                                                        累計金額：<span style={{ fontWeight: 700, background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>¥{totalAmount.toLocaleString()}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* 最終予約日 */}
+                                            {lastReservation && (
+                                                <div style={{ fontSize: 11, color: '#737373', marginTop: 4 }}>
+                                                    最終予約：{new Date(lastReservation.reserved_at).toLocaleDateString('ja-JP')}
+                                                    {lastReservation.menus?.name}
+                                                </div>
+                                            )}
+
+                                            {/* ブロック状態 */}
+                                            {isBlocked && (
+                                                <div style={{ marginTop: 6, display: 'inline-block', fontSize: 10, fontWeight: 700, background: '#FFEBEE', color: '#C62828', padding: '2px 10px', borderRadius: 100 }}>
+                                                    ブロック中
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* ブロック／解除ボタン */}
+                                        <div style={{ flexShrink: 0, marginLeft: 12 }}>
+                                            {isBlocked ? (
+                                                <button onClick={() => unblockUser(u.user_id)}
+                                                    style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #DBDBDB', background: '#F2F2F2', color: '#737373', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                                    ブロック解除
+                                                </button>
+                                            ) : (
+                                                <button onClick={() => blockUser(u.user_id, salon.id)}
+                                                    style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #FFCDD2', background: '#FFEBEE', color: '#C62828', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                                    ブロック
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* 予約履歴の折りたたみ */}
+                                    <details style={{ marginTop: 10 }}>
+                                        <summary style={{ fontSize: 11, color: '#833AB4', cursor: 'pointer', fontWeight: 700, listStyle: 'none' }}>
+                                            予約履歴を見る ({u.reservations.length}件)
+                                        </summary>
+                                        <div style={{ marginTop: 8, paddingLeft: 8 }}>
+                                            {u.reservations
+                                                .sort((a: any, b: any) => new Date(b.reserved_at).getTime() - new Date(a.reserved_at).getTime())
+                                                .map((res: any) => {
+                                                    const statusConfig: any = {
+                                                        pending: { label: '承認待ち', color: '#F57F17' },
+                                                        confirmed: { label: '承認済', color: '#2E7D32' },
+                                                        cancelled: { label: 'キャンセル', color: '#C62828' },
+                                                        completed: { label: '来店完了', color: '#6A1B9A' },
+                                                        expired: { label: 'タイムアウト', color: '#737373' },
+                                                    }
+                                                    return (
+                                                        <div key={res.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #F2F2F2', fontSize: 12 }}>
+                                                            <div>
+                                                                <span style={{ fontWeight: 700, color: statusConfig[res.status]?.color, marginRight: 8, fontSize: 10 }}>
+                                                                    {statusConfig[res.status]?.label}
+                                                                </span>
+                                                                {res.menus?.name}
+                                                                {res.stylists?.name && <span style={{ color: '#737373' }}> / {res.stylists.name}</span>}
+                                                            </div>
+                                                            <div style={{ color: '#737373', flexShrink: 0, marginLeft: 12 }}>
+                                                                {new Date(res.reserved_at).toLocaleDateString('ja-JP')}
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
+                                        </div>
+                                    </details>
+                                </div>
+                            )
+                        })}
+                    </div>
+                )}
+
+
+
             </div>
         </div>
     )
