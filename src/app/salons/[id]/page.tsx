@@ -29,6 +29,8 @@ export default function SalonDetailPage() {
   const [availabilityLoading, setAvailabilityLoading] = useState(false)
   const [bookingLoading, setBookingLoading] = useState(false)
 
+  const [isBlocked, setIsBlocked] = useState(false)
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user))
     fetchSalonData()
@@ -41,6 +43,17 @@ export default function SalonDetailPage() {
     setMenus(menuData || [])
     const { data: stylistData } = await supabase.from('stylists').select('*').eq('salon_id', id).eq('is_active', true)
     setStylists(stylistData || [])
+    // ブロックチェック
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
+    if (currentUser) {
+      const { data: blockData } = await supabase
+        .from('blocks')
+        .select('id')
+        .eq('blocked_id', currentUser.id)
+        .eq('blocked_salon_id', id)
+        .maybeSingle()
+      setIsBlocked(!!blockData)
+    }
   }
 
   const loadAvailability = async (stylistId: string | null) => {
@@ -165,6 +178,10 @@ export default function SalonDetailPage() {
   }, [selectedDate, schedules, selectedMenu, selectedStylist, salon])
 
   const makeReservation = async () => {
+    if (isBlocked) {
+      alert('このサロンへの予約はできません。')
+      return
+    }
     if (!user) { router.push('/auth'); return }
     setBookingLoading(true)
     const slotDate = new Date(`${selectedDate}T${selectedTime}:00+09:00`)
@@ -289,6 +306,11 @@ export default function SalonDetailPage() {
         {infoTab === 'booking' && (
           <div>
             {/* ④ ログイン案内 */}
+            {isBlocked && (
+              <div style={{ background: '#FFEBEE', border: '1.5px solid #FFCDD2', borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: '#C62828', fontWeight: 500 }}>
+                このサロンへの予約はご利用いただけません。
+              </div>
+            )}
             {!user && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 flex items-center justify-between">
                 <p className="text-sm text-yellow-700">⚠️ 予約にはログインが必要です</p>
@@ -454,10 +476,10 @@ export default function SalonDetailPage() {
                                 onClick={() => { if (day.available) { setSelectedDate(day.date); setSelectedTime('') } }}
                                 disabled={!day.available}
                                 className={`w-full h-full flex flex-col items-center justify-center rounded-lg text-xs font-bold transition ${selectedDate === day.date
-                                    ? 'bg-pink-500 text-white shadow'
-                                    : day.available
-                                      ? 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
-                                      : 'text-gray-300 cursor-not-allowed'
+                                  ? 'bg-pink-500 text-white shadow'
+                                  : day.available
+                                    ? 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
+                                    : 'text-gray-300 cursor-not-allowed'
                                   }`}>
                                 <span>{parseInt(day.date.split('-')[2])}</span>
                                 <span className="text-xs leading-none">{day.available ? '○' : '×'}</span>
@@ -496,10 +518,10 @@ export default function SalonDetailPage() {
                                   onClick={() => available && setSelectedTime(slot)}
                                   disabled={!available}
                                   className={`py-2 rounded-lg text-sm font-bold border transition ${isSelected
-                                      ? 'bg-pink-500 text-white border-pink-500'
-                                      : available
-                                        ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
-                                        : 'border-gray-200 text-gray-300 bg-gray-50 cursor-not-allowed'
+                                    ? 'bg-pink-500 text-white border-pink-500'
+                                    : available
+                                      ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
+                                      : 'border-gray-200 text-gray-300 bg-gray-50 cursor-not-allowed'
                                     }`}>
                                   {slot}
                                 </button>
