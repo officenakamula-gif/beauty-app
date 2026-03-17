@@ -331,7 +331,7 @@ export default function SalonDetailPage() {
       })()}
 
       {/* ── 2カラムレイアウト ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 16, maxWidth: 980px, margin: '0 auto', padding: '16px 16px 40px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 16, maxWidth: '980px', margin: '0 auto', padding: '16px 16px 40px' }}>
 
         {/* ════ 左カラム ════ */}
         <div style={{ minWidth: 0 }}>
