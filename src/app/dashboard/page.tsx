@@ -105,10 +105,14 @@ export default function DashboardPage() {
                 const userIds = Object.keys(userMap)
                 const { data: profileData } = await supabase
                     .from('profiles')
-                    .select('id, username')
+                    .select('id, username, full_name, phone')
                     .in('id', userIds)
                 for (const prof of profileData || []) {
-                    if (userMap[prof.id]) userMap[prof.id].email = prof.username
+                    if (userMap[prof.id]) {
+                        userMap[prof.id].email = prof.username
+                        userMap[prof.id].full_name = prof.full_name || null
+                        userMap[prof.id].phone = prof.phone || null
+                    }
                 }
                 setSalonUsers(Object.values(userMap))
             }
@@ -642,8 +646,20 @@ export default function DashboardPage() {
                                 <div key={u.user_id} style={{ padding: '16px 0', borderBottom: '1px solid #DBDBDB' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                         <div style={{ flex: 1 }}>
+                                            {/* 氏名 */}
+                                            {u.full_name && (
+                                                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>
+                                                    {u.full_name}
+                                                </div>
+                                            )}
+                                            {/* 電話番号 */}
+                                            {u.phone && (
+                                                <div style={{ fontSize: 12, color: '#737373', marginBottom: 4 }}>
+                                                    {u.phone}
+                                                </div>
+                                            )}
                                             {/* メールアドレス */}
-                                            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>
+                                            <div style={{ fontSize: u.full_name ? 12 : 14, fontWeight: u.full_name ? 400 : 700, color: u.full_name ? '#737373' : '#111', marginBottom: 6 }}>
                                                 {u.email || u.user_id}
                                             </div>
 

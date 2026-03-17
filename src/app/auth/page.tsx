@@ -11,17 +11,28 @@ export default function AuthPage() {
   const [role, setRole] = useState<'user' | 'salon'>('user')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async () => {
     if (!email || !password) { alert('メールアドレスとパスワードを入力してください'); return }
+    if (mode === 'register' && !fullName) { alert('氏名を入力してください'); return }
     setLoading(true)
     try {
       if (mode === 'register') {
         const { data, error } = await supabase.auth.signUp({ email, password })
         if (error) throw error
         if (data.user) {
-          await supabase.from('profiles').upsert({ id: data.user.id, username: email, role })
+          await supabase.from('profiles').upsert({
+            id: data.user.id,
+            username: email,
+            role,
+            full_name: fullName,
+            phone: phone || null,
+            display_name: displayName || null,
+          })
           alert('登録完了！確認メールをご確認ください。')
         }
       } else {
@@ -42,6 +53,18 @@ export default function AuthPage() {
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
     backgroundClip: 'text',
+  }
+
+  const inputStyle = {
+    width: '100%',
+    border: '1.5px solid #DBDBDB',
+    borderRadius: 10,
+    padding: '11px 14px',
+    fontSize: 14,
+    fontFamily: 'inherit',
+    outline: 'none',
+    color: '#111',
+    background: '#FAFAFA',
   }
 
   return (
@@ -87,13 +110,58 @@ export default function AuthPage() {
               </div>
             )}
 
+            {/* 氏名（register only） */}
+            {mode === 'register' && (
+              <div style={{ marginBottom: 12 }}>
+                <input
+                  type="text"
+                  placeholder="氏名（必須）"
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+            )}
+
+            {/* 電話番号（register only） */}
+            {mode === 'register' && (
+              <div style={{ marginBottom: 12 }}>
+                <input
+                  type="tel"
+                  placeholder="電話番号（例：090-1234-5678）"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+            )}
+
+            {/* 表示名（register only・任意） */}
+            {mode === 'register' && (
+              <div style={{ marginBottom: 12 }}>
+                <input
+                  type="text"
+                  placeholder="表示名（任意）"
+                  value={displayName}
+                  onChange={e => setDisplayName(e.target.value)}
+                  style={inputStyle}
+                />
+                <div style={{ fontSize: 11, color: '#737373', marginTop: 4, paddingLeft: 4 }}>
+                  未入力の場合は氏名が表示名として使われます
+                </div>
+              </div>
+            )}
+
+            {/* メールアドレス */}
             <div style={{ marginBottom: 12 }}>
               <input type="email" placeholder="メールアドレス" value={email} onChange={e => setEmail(e.target.value)}
-                style={{ width: '100%', border: '1.5px solid #DBDBDB', borderRadius: 10, padding: '11px 14px', fontSize: 14, fontFamily: 'inherit', outline: 'none', color: '#111', background: '#FAFAFA' }} />
+                style={inputStyle} />
             </div>
+
+            {/* パスワード */}
             <div style={{ marginBottom: 20 }}>
               <input type="password" placeholder="パスワード" value={password} onChange={e => setPassword(e.target.value)}
-                style={{ width: '100%', border: '1.5px solid #DBDBDB', borderRadius: 10, padding: '11px 14px', fontSize: 14, fontFamily: 'inherit', outline: 'none', color: '#111', background: '#FAFAFA' }} />
+                style={inputStyle} />
             </div>
 
             <button onClick={handleSubmit} disabled={loading}
