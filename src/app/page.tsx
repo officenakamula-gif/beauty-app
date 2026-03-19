@@ -10,7 +10,7 @@ import { GENRE_GROUPS } from '@/lib/genres'
 const GENRES = [
   { key: 'ヘアサロン', label: 'ヘアサロン' },
   { key: 'ネイル・まつげ', label: 'ネイル・まつげ' },
-  { key: 'リラク・エステ', label: 'リラク・エステ' },
+  { key: 'リラク・エステ・脱毛', label: 'リラク・エステ・脱毛' },
 ]
 
 export default function HomePage() {

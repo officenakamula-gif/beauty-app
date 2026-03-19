@@ -55,7 +55,7 @@ export const GENRE_GROUPS: GenreGroup[] = [
     ],
   },
   {
-    category: 'リラク・エステ',
+    category: 'リラク・エステ・脱毛',
     genres: [
       'ボディマッサージ',
       'フェイシャルエステ',

@@ -8,7 +8,7 @@ import { GENRE_GROUPS, getGenresByCategory } from '@/lib/genres'
 import { DAY_NAMES } from '@/lib/availability'
 import Link from 'next/link'
 
-const GENRES = ['ヘアサロン', 'ネイル・まつげ', 'リラク・エステ']
+const GENRES = ['ヘアサロン', 'ネイル・まつげ', 'リラク・エステ・脱毛']
 
 const grad = 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)'
 const gradText: any = { background: grad, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }
