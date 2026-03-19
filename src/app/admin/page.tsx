@@ -70,7 +70,7 @@ export default function AdminPage() {
   }
 
   const fetchSalons = async () => {
-    const { data } = await supabase.from('salons').select('*, profiles!salons_owner_id_fkey(username)').order('created_at', { ascending: false })
+    const { data } = await supabase.from('salons').select('*').order('created_at', { ascending: false })
     setSalons(data || [])
   }
 
@@ -271,7 +271,7 @@ export default function AdminPage() {
                       {s.genre}　{s.area}　{s.address}
                     </div>
                     <div style={{ fontSize: 11, color: '#737373' }}>
-                      オーナー：{s.profiles?.username || '不明'}
+                      登録日：{new Date(s.created_at).toLocaleDateString('ja-JP')}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 12 }}>
