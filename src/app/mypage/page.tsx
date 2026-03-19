@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { sendEmail, emailTemplates } from '@/lib/email'
 
 export default function MyPage() {
   const router = useRouter()
@@ -20,7 +21,7 @@ export default function MyPage() {
     setUser(user)
     const { data } = await supabase
       .from('reservations')
-      .select('*, salons(name, area), menus(name, price), stylists(name)')
+      .select('*, salons(name, area, owner_id), menus(name, price), stylists(name)')
       .eq('user_id', user.id)
       .order('reserved_at', { ascending: false })
     setReservations(data || [])
@@ -31,6 +32,28 @@ export default function MyPage() {
     if (!confirm('予約をキャンセルしますか？')) return
     await supabase.from('reservations').update({ status: 'cancelled' }).eq('id', id)
     setReservations(reservations.map(r => r.id === id ? { ...r, status: 'cancelled' } : r))
+
+    // メール送信
+    const res = reservations.find(r => r.id === id)
+    if (!res) return
+    const dateStr = new Date(res.reserved_at).toLocaleString('ja-JP')
+    const menuName = res.menus?.name || ''
+    const salonName = res.salons?.name || ''
+
+    // ユーザー自身にキャンセル確認メール
+    if (user?.email) await sendEmail(
+      user.email,
+      ...Object.values(emailTemplates.reservationCancelled(salonName, menuName, dateStr, 'user_cancelled')) as [string, string]
+    )
+
+    // サロンオーナーにキャンセル通知メール
+    const { data: ownerProf } = await supabase
+      .from('profiles').select('username').eq('id', res.salons?.owner_id).single()
+    const ownerEmail = ownerProf?.username || ''
+    if (ownerEmail) await sendEmail(
+      ownerEmail,
+      ...Object.values(emailTemplates.salonReservationCancelled(user?.email || '', menuName, dateStr, 'user')) as [string, string]
+    )
   }
 
   // 退会処理（データは残す・フラグのみ更新）
