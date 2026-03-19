@@ -204,6 +204,21 @@ export default function SalonDetailPage() {
     }
   }
 
+  // 60日先が予約上限
+  const maxBookingDate = useMemo(() => {
+    const d = new Date()
+    d.setDate(d.getDate() + 60)
+    d.setHours(23, 59, 59, 999)
+    return d
+  }, [])
+
+  // カレンダーの最大月（今月 or 来月まで）
+  const maxMonth = useMemo(() => {
+    const d = new Date()
+    d.setDate(d.getDate() + 60)
+    return new Date(d.getFullYear(), d.getMonth(), 1)
+  }, [])
+
   const calendarDays = useMemo(() => {
     const year = currentMonth.getFullYear()
     const month = currentMonth.getMonth()
@@ -219,11 +234,12 @@ export default function SalonDetailPage() {
       const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`
       const date = new Date(dateStr + 'T00:00:00+09:00')
       const isPast = date < today
-      const available = !isPast && getDateAvailable(dateStr)
-      days.push({ date: dateStr, available, isPast, isEmpty: false })
+      const isTooFar = date > maxBookingDate
+      const available = !isPast && !isTooFar && getDateAvailable(dateStr)
+      days.push({ date: dateStr, available, isPast: isPast || isTooFar, isEmpty: false })
     }
     return days
-  }, [currentMonth, schedules, reservations, selectedMenu, selectedStylist, stylists, salon])
+  }, [currentMonth, schedules, reservations, selectedMenu, selectedStylist, stylists, salon, maxBookingDate])
 
   const nearestAvailableDate = useMemo(() => {
     return calendarDays.find(d => !d.isEmpty && !d.isPast && d.available)?.date || ''
@@ -631,8 +647,10 @@ export default function SalonDetailPage() {
                             <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
                               style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid #DBDBDB', background: 'white', cursor: 'pointer', fontSize: 12, color: '#737373', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>◀</button>
                             <span style={{ fontWeight: 700, fontSize: 14, color: '#111' }}>{currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月</span>
-                            <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
-                              style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid #DBDBDB', background: 'white', cursor: 'pointer', fontSize: 12, color: '#737373', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>▶</button>
+                            <button
+                              onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+                              disabled={currentMonth >= maxMonth}
+                              style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid #DBDBDB', background: 'white', cursor: currentMonth >= maxMonth ? 'not-allowed' : 'pointer', fontSize: 12, color: currentMonth >= maxMonth ? '#BDBDBD' : '#737373', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit', opacity: currentMonth >= maxMonth ? 0.4 : 1 }}>▶</button>
                           </div>
 
                           <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
