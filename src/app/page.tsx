@@ -43,7 +43,7 @@ export default function HomePage() {
 
   const fetchSalons = async () => {
     let query = supabase.from('salons').select('*').eq('is_active', true)
-    if (search) query = query.ilike('name', `%${search}%`)
+    if (search) query = query.or(`name.ilike.%${search}%,address.ilike.%${search}%,nearest_station.ilike.%${search}%`)
     if (selectedArea) query = query.eq('area', selectedArea)
     if (genre) query = query.eq('genre', genre)
     if (selectedSubGenre) query = query.eq('sub_genre', selectedSubGenre)
