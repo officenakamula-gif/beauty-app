@@ -385,45 +385,82 @@ export default function SalonDetailPage() {
           {/* タブコンテンツ */}
           <div style={{ ...card, borderRadius: '0 0 12px 12px', borderTop: 'none' }}>
 
-            {/* ── サロン情報タブ ── */}
+            {/* ── サロン情報タブ（HPB風） ── */}
             {infoTab === 'info' && (
               <div>
-                {/* 説明文 */}
+
+                {/* キャッチコピー・説明文 */}
                 {salon.description && (
-                  <div style={{ marginBottom: 20 }}>
-                    <div style={sectionTitle}>サロンについて</div>
-                    <p style={{ fontSize: 13, color: '#555', lineHeight: 1.9 }}>{salon.description}</p>
+                  <div style={{ marginBottom: 24 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#E1306C', lineHeight: 1.6, marginBottom: 10 }}>
+                      {salon.description.split('\n')[0]}
+                    </div>
+                    <p style={{ fontSize: 13, color: '#444', lineHeight: 2.0 }}>
+                      {salon.description.split('\n').slice(1).join('\n') || salon.description}
+                    </p>
                   </div>
                 )}
 
                 {/* ギャラリー */}
                 {(salon.gallery_images || []).length > 0 && (
-                  <div style={{ marginBottom: 20 }}>
+                  <div style={{ marginBottom: 24 }}>
                     <div style={sectionTitle}>店内・サロン画像</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
                       {salon.gallery_images.map((url: string, i: number) => (
-                        <img key={i} src={url} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8 }} />
+                        <img key={i} src={url} alt="" style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover', borderRadius: 8 }} />
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* メニュー一覧 */}
+                {/* メニュー一覧（HPB風カード） */}
                 {menus.length > 0 && (
-                  <div>
-                    <div style={sectionTitle}>メニュー</div>
-                    {menus.map(menu => (
-                      <div key={menu.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #F2F2F2' }}>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>{menu.name}</div>
-                          {menu.description && <div style={{ fontSize: 11, color: '#737373', marginTop: 2 }}>{menu.description}</div>}
-                          <div style={{ fontSize: 11, color: '#737373', marginTop: 2 }}>約{menu.duration}分</div>
+                  <div style={{ marginBottom: 24 }}>
+                    <div style={sectionTitle}>クーポン・メニュー</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {menus.map(menu => (
+                        <div key={menu.id}
+                          style={{ border: '1px solid #DBDBDB', borderRadius: 10, padding: '14px 16px', background: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#111', marginBottom: 3 }}>{menu.name}</div>
+                            {menu.description && (
+                              <div style={{ fontSize: 12, color: '#737373', lineHeight: 1.6, marginBottom: 4 }}>{menu.description}</div>
+                            )}
+                            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                              <span style={{ fontSize: 11, color: '#737373' }}>所要時間：約{menu.duration}分</span>
+                            </div>
+                          </div>
+                          <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                            <div style={{ fontSize: 18, fontWeight: 700, ...gradText }}>¥{menu.price.toLocaleString()}</div>
+                            <button onClick={() => { setSelectedMenu(menu); setInfoTab('booking'); setStep(2) }}
+                              style={{ marginTop: 6, background: grad, color: 'white', border: 'none', padding: '5px 14px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' as const }}>
+                              このメニューで予約
+                            </button>
+                          </div>
                         </div>
-                        <div style={{ fontSize: 14, fontWeight: 700, ...gradText, flexShrink: 0, marginLeft: 12 }}>¥{menu.price.toLocaleString()}</div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 )}
+
+                {/* アクセス・基本情報（HPBのサロン情報欄） */}
+                <div style={{ marginBottom: 24 }}>
+                  <div style={sectionTitle}>アクセス・サロン情報</div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' as const }}>
+                    {[
+                      { label: 'ジャンル', value: [salon.genre, salon.sub_genre].filter(Boolean).join(' / ') },
+                      { label: '住所', value: `${salon.area} ${salon.address}` },
+                      salon.nearest_station ? { label: '最寄り駅', value: `${salon.nearest_station}駅近く` } : null,
+                      salon.phone ? { label: '電話番号', value: salon.phone } : null,
+                    ].filter(Boolean).map((row: any) => (
+                      <tr key={row.label} style={{ borderBottom: '1px solid #F2F2F2' }}>
+                        <td style={{ padding: '9px 0', fontSize: 12, fontWeight: 700, color: '#737373', width: 90, verticalAlign: 'top' as const }}>{row.label}</td>
+                        <td style={{ padding: '9px 0', fontSize: 13, color: '#111', lineHeight: 1.7 }}>{row.value}</td>
+                      </tr>
+                    ))}
+                  </table>
+                </div>
+
               </div>
             )}
 

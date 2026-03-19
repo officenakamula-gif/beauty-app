@@ -19,7 +19,7 @@ export default function AdminPage() {
   const [tab, setTab] = useState<'stats' | 'salons' | 'users' | 'notify'>('stats')
 
   // 統計
-  const [stats, setStats] = useState({ salons: 0, users: 0, reservations: 0, pendingRes: 0 })
+  const [stats, setStats] = useState({ salons: 0, users: 0, reservations: 0, pendingRes: 0, pendingSalons: 0 })
 
   // サロン
   const [salons, setSalons] = useState<any[]>([])
@@ -61,11 +61,13 @@ export default function AdminPage() {
       supabase.from('reservations').select('*', { count: 'exact', head: true }),
       supabase.from('reservations').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
     ])
+    const { count: pendingSalonsCount } = await supabase.from('salons').select('*', { count: 'exact', head: true }).eq('status', 'pending')
     setStats({
       salons: salonsCount || 0,
       users: usersCount || 0,
       reservations: resCount || 0,
       pendingRes: pendingCount || 0,
+      pendingSalons: pendingSalonsCount || 0,
     })
   }
 
@@ -93,6 +95,53 @@ export default function AdminPage() {
   const toggleSalonActive = async (salonId: string, current: boolean) => {
     await supabase.from('salons').update({ is_active: !current }).eq('id', salonId)
     setSalons(salons.map(s => s.id === salonId ? { ...s, is_active: !current } : s))
+  }
+
+  const approveSalon = async (salonId: string, ownerId: string, ownerEmail: string, salonName: string) => {
+    if (!confirm(`「${salonName}」を承認して掲載しますか？`)) return
+    await supabase.from('salons').update({ is_active: true, status: 'active' }).eq('id', salonId)
+    setSalons(salons.map(s => s.id === salonId ? { ...s, is_active: true, status: 'active' } : s))
+    // 承認メール送信
+    await sendEmail(ownerEmail,
+      '【Salon de Beauty】サロン掲載が承認されました',
+      `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;">
+        <div style="background:linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB);padding:20px;text-align:center;">
+          <h1 style="color:white;margin:0;font-size:20px;">Salon de Beauty</h1>
+        </div>
+        <div style="padding:24px;">
+          <p style="font-size:18px;font-weight:bold;color:#2E7D32;">✅ サロン掲載が承認されました！</p>
+          <p>「${salonName}」の掲載申請が承認されました。</p>
+          <p>ダッシュボードからサロン情報・メニュー・スタイリストを入力して、ユーザーへのアピールを始めましょう！</p>
+          <a href="https://beauty-app-mhst.vercel.app/dashboard"
+            style="display:block;background:linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB);color:white;text-align:center;padding:12px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:16px;">
+            ダッシュボードを開く
+          </a>
+        </div>
+      </div>`
+    )
+    alert('承認しました。サロンオーナーに通知メールを送信しました。')
+  }
+
+  const rejectSalon = async (salonId: string, ownerEmail: string, salonName: string) => {
+    const reason = prompt('却下理由を入力してください（オーナーへのメールに記載されます）')
+    if (reason === null) return
+    await supabase.from('salons').update({ is_active: false, status: 'rejected' }).eq('id', salonId)
+    setSalons(salons.map(s => s.id === salonId ? { ...s, is_active: false, status: 'rejected' } : s))
+    await sendEmail(ownerEmail,
+      '【Salon de Beauty】サロン掲載申請について',
+      `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;">
+        <div style="background:linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB);padding:20px;text-align:center;">
+          <h1 style="color:white;margin:0;font-size:20px;">Salon de Beauty</h1>
+        </div>
+        <div style="padding:24px;">
+          <p style="font-size:16px;font-weight:bold;color:#C62828;">サロン掲載申請の審査結果</p>
+          <p>「${salonName}」の掲載申請について、今回は審査を通過できませんでした。</p>
+          ${reason ? `<div style="background:#FFF8E1;border-radius:8px;padding:12px;margin:12px 0;"><strong>理由：</strong>${reason}</div>` : ''}
+          <p>内容を修正の上、再度ご申請いただけます。</p>
+        </div>
+      </div>`
+    )
+    alert('却下しました。サロンオーナーに通知メールを送信しました。')
   }
 
   const sendNotification = async () => {
@@ -214,12 +263,13 @@ export default function AdminPage() {
         {/* ── 統計タブ ── */}
         {tab === 'stats' && (
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 24 }}>
               {[
                 { label: '掲載サロン数', value: stats.salons, color: '#833AB4' },
                 { label: '登録ユーザー数', value: stats.users, color: '#E1306C' },
                 { label: '総予約数', value: stats.reservations, color: '#F77737' },
-                { label: '承認待ち予約', value: stats.pendingRes, color: '#F57F17' },
+                { label: '審査待ちサロン', value: stats.pendingSalons, color: '#F57F17' },
+                { label: '承認待ち予約', value: stats.pendingRes, color: '#FB8C00' },
               ].map(s => (
                 <div key={s.label} style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: '20px 16px', textAlign: 'center' }}>
                   <div style={{ fontSize: 11, color: '#737373', marginBottom: 8 }}>{s.label}</div>
@@ -269,9 +319,15 @@ export default function AdminPage() {
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
                       <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{s.name}</span>
-                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: s.is_active ? '#E8F5E9' : '#FFEBEE', color: s.is_active ? '#2E7D32' : '#C62828' }}>
-                        {s.is_active ? '掲載中' : '非掲載'}
-                      </span>
+                      {s.status === 'pending' ? (
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#FFF8E1', color: '#F57F17' }}>審査待ち</span>
+                      ) : s.status === 'rejected' ? (
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#FFEBEE', color: '#C62828' }}>却下</span>
+                      ) : (
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: s.is_active ? '#E8F5E9' : '#F5F5F5', color: s.is_active ? '#2E7D32' : '#737373' }}>
+                          {s.is_active ? '掲載中' : '停止中'}
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: 11, color: '#737373' }}>
                       {s.genre}　{s.area}　{s.address}
@@ -284,15 +340,30 @@ export default function AdminPage() {
                       登録：{new Date(s.created_at).toLocaleDateString('ja-JP')}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 12 }}>
-                    <Link href={`/salons/${s.id}`} target="_blank"
-                      style={{ fontSize: 11, border: '1.5px solid #DBDBDB', background: 'none', padding: '5px 12px', borderRadius: 8, cursor: 'pointer', color: '#262626', textDecoration: 'none', fontWeight: 700 }}>
-                      表示
-                    </Link>
-                    <button onClick={() => toggleSalonActive(s.id, s.is_active)}
-                      style={{ fontSize: 11, fontWeight: 700, border: s.is_active ? '1.5px solid #FFCDD2' : '1.5px solid #A5D6A7', background: s.is_active ? '#FFEBEE' : '#E8F5E9', color: s.is_active ? '#C62828' : '#2E7D32', padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
-                      {s.is_active ? '掲載停止' : '掲載再開'}
-                    </button>
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 12, flexWrap: 'wrap' as const, justifyContent: 'flex-end' }}>
+                    {s.status === 'pending' ? (
+                      <>
+                        <button onClick={() => approveSalon(s.id, s.owner_id, s.ownerProfile?.username || '', s.name)}
+                          style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #A5D6A7', background: '#E8F5E9', color: '#2E7D32', padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          承認する
+                        </button>
+                        <button onClick={() => rejectSalon(s.id, s.ownerProfile?.username || '', s.name)}
+                          style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #FFCDD2', background: '#FFEBEE', color: '#C62828', padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          却下
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Link href={`/salons/${s.id}`} target="_blank"
+                          style={{ fontSize: 11, border: '1.5px solid #DBDBDB', background: 'none', padding: '5px 12px', borderRadius: 8, cursor: 'pointer', color: '#262626', textDecoration: 'none', fontWeight: 700 }}>
+                          表示
+                        </Link>
+                        <button onClick={() => toggleSalonActive(s.id, s.is_active)}
+                          style={{ fontSize: 11, fontWeight: 700, border: s.is_active ? '1.5px solid #FFCDD2' : '1.5px solid #A5D6A7', background: s.is_active ? '#FFEBEE' : '#E8F5E9', color: s.is_active ? '#C62828' : '#2E7D32', padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          {s.is_active ? '掲載停止' : '掲載再開'}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
