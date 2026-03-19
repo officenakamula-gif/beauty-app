@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { REGIONS } from '@/lib/areas'
+import { GENRE_GROUPS, getGenresByCategory } from '@/lib/genres'
 import { DAY_NAMES } from '@/lib/availability'
 import Link from 'next/link'
 
@@ -51,7 +52,7 @@ export default function DashboardPage() {
     const galleryRef = useRef<HTMLInputElement>(null)
 
     const [salonForm, setSalonForm] = useState({
-        name: '', genre: 'ヘアサロン', prefecture: '北海道', area: '札幌市中央区',
+        name: '', genre: 'ヘアサロン', sub_genre: '', prefecture: '北海道', area: '札幌市中央区',
         address: '', nearest_station: '', description: '', phone: '', slot_interval: 30
     })
     const [menuForm, setMenuForm] = useState({ name: '', price: '', duration: '', description: '' })
@@ -75,7 +76,7 @@ export default function DashboardPage() {
             setSalon(salonData)
             const pref = findPrefForArea(salonData.area)
             setSalonForm({
-                name: salonData.name || '', genre: salonData.genre || 'ヘアサロン', prefecture: pref,
+                name: salonData.name || '', genre: salonData.genre || 'ヘアサロン', sub_genre: salonData.sub_genre || '', prefecture: pref,
                 area: salonData.area || '', address: salonData.address || '',
                 nearest_station: salonData.nearest_station || '', description: salonData.description || '',
                 phone: salonData.phone || '', slot_interval: salonData.slot_interval || 30,
@@ -170,7 +171,7 @@ export default function DashboardPage() {
         if (!salonForm.name || !salonForm.area || !salonForm.address) { alert('サロン名・エリア・住所は必須です'); return }
         setSaving(true)
         const payload = {
-            name: salonForm.name, genre: salonForm.genre, area: salonForm.area,
+            name: salonForm.name, genre: salonForm.genre, sub_genre: salonForm.sub_genre || null, area: salonForm.area,
             address: salonForm.address, nearest_station: salonForm.nearest_station,
             description: salonForm.description, phone: salonForm.phone, slot_interval: salonForm.slot_interval,
         }
@@ -391,10 +392,18 @@ export default function DashboardPage() {
                                 <input value={salonForm.name} onChange={e => setSalonForm({ ...salonForm, name: e.target.value })} placeholder="例：SALON de BEAUTÉ" style={inputStyle} />
                             </div>
                             <div style={{ marginBottom: 14 }}>
-                                <label style={labelStyle}>ジャンル *</label>
-                                <select value={salonForm.genre} onChange={e => setSalonForm({ ...salonForm, genre: e.target.value })} style={{ ...inputStyle }}>
+                                <label style={labelStyle}>大カテゴリ *</label>
+                                <select value={salonForm.genre} onChange={e => setSalonForm({ ...salonForm, genre: e.target.value, sub_genre: '' })} style={{ ...inputStyle }}>
                                     {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
                                 </select>
+                            </div>
+                            <div style={{ marginBottom: 14 }}>
+                                <label style={labelStyle}>小ジャンル（サービス内容）</label>
+                                <select value={salonForm.sub_genre} onChange={e => setSalonForm({ ...salonForm, sub_genre: e.target.value })} style={{ ...inputStyle }}>
+                                    <option value=''>選択してください（任意）</option>
+                                    {getGenresByCategory(salonForm.genre).map(g => <option key={g} value={g}>{g}</option>)}
+                                </select>
+                                <div style={{ fontSize: 11, color: '#737373', marginTop: 4 }}>検索・一覧ページで絞り込みに使われます</div>
                             </div>
                             <div style={{ marginBottom: 14 }}>
                                 <label style={labelStyle}>都道府県 *</label>

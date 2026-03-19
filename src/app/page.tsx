@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { REGIONS } from '@/lib/areas'
+import { GENRE_GROUPS } from '@/lib/genres'
 
 const GENRES = [
   { key: 'ヘアサロン', label: 'ヘアサロン' },
@@ -20,6 +21,7 @@ export default function HomePage() {
   const [selectedPref, setSelectedPref] = useState('')
   const [selectedArea, setSelectedArea] = useState('')
   const [genre, setGenre] = useState('ヘアサロン')
+  const [selectedSubGenre, setSelectedSubGenre] = useState('')
   const [user, setUser] = useState<any>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -37,13 +39,14 @@ export default function HomePage() {
     })
   }, [])
 
-  useEffect(() => { fetchSalons() }, [search, selectedArea, genre])
+  useEffect(() => { fetchSalons() }, [search, selectedArea, genre, selectedSubGenre])
 
   const fetchSalons = async () => {
     let query = supabase.from('salons').select('*').eq('is_active', true)
     if (search) query = query.ilike('name', `%${search}%`)
     if (selectedArea) query = query.eq('area', selectedArea)
     if (genre) query = query.eq('genre', genre)
+    if (selectedSubGenre) query = query.eq('sub_genre', selectedSubGenre)
     const { data } = await query.order('created_at', { ascending: false })
     setSalons(data || [])
   }
@@ -70,14 +73,18 @@ export default function HomePage() {
     setProfile(null)
   }
 
-  const selectArea = (area: string) => {
-    setSelectedArea(area)
-  }
+  const selectArea = (area: string) => { setSelectedArea(area) }
 
   const clearArea = () => {
     setSelectedRegion('')
     setSelectedPref('')
     setSelectedArea('')
+  }
+
+  // ジャンルをクリックで大カテゴリ切替＋小ジャンル絞り込み
+  const handleSubGenreClick = (cat: string, sub: string) => {
+    setGenre(cat)
+    setSelectedSubGenre(prev => prev === sub ? '' : sub)
   }
 
   const s: any = {
@@ -128,14 +135,58 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Genre tabs */}
+      {/* Genre tabs（大カテゴリ） */}
       <div style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', display: 'flex' }}>
         {GENRES.map(g => (
-          <button key={g.key} onClick={() => setGenre(g.key)}
+          <button key={g.key} onClick={() => { setGenre(g.key); setSelectedSubGenre('') }}
             style={{ padding: '12px 20px', fontSize: 13, fontWeight: 500, border: 'none', borderBottom: genre === g.key ? '2px solid #E1306C' : '2px solid transparent', background: 'none', cursor: 'pointer', color: genre === g.key ? '#111' : '#737373', fontFamily: 'inherit', transition: 'all 0.2s' }}>
             {g.label}
           </button>
         ))}
+      </div>
+
+      {/* ━━ ジャンルで検索セクション ━━ */}
+      <div style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '20px 32px' }}>
+        <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 14 }}>
+            {genre}をジャンルから探す
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {(GENRE_GROUPS.find(g => g.category === genre)?.genres || []).map(sub => (
+              <button
+                key={sub}
+                onClick={() => handleSubGenreClick(genre, sub)}
+                style={{
+                  padding: '6px 14px',
+                  fontSize: 12,
+                  fontWeight: selectedSubGenre === sub ? 700 : 400,
+                  border: selectedSubGenre === sub ? 'none' : '1.5px solid #DBDBDB',
+                  borderRadius: 100,
+                  background: selectedSubGenre === sub
+                    ? 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)'
+                    : 'white',
+                  color: selectedSubGenre === sub ? 'white' : '#262626',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  transition: 'all 0.15s',
+                  whiteSpace: 'nowrap' as const,
+                }}>
+                {sub}
+              </button>
+            ))}
+          </div>
+          {selectedSubGenre && (
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, color: '#737373' }}>絞り込み中：</span>
+              <span style={{ background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4)', color: 'white', fontSize: 12, fontWeight: 700, padding: '3px 14px', borderRadius: 100 }}>{selectedSubGenre}</span>
+              <button
+                onClick={() => setSelectedSubGenre('')}
+                style={{ fontSize: 11, color: '#737373', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                クリア ×
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Main layout */}
@@ -217,6 +268,7 @@ export default function HomePage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div style={{ fontSize: 13, color: '#737373' }}>
               <strong style={{ color: '#111', fontWeight: 700 }}>{salons.length}件</strong>のサロン
+              {selectedSubGenre && <span style={{ color: '#E1306C', marginLeft: 4 }}>/ {selectedSubGenre}</span>}
               {selectedArea && <span style={{ color: '#E1306C', marginLeft: 4 }}>/ {selectedArea}</span>}
             </div>
             <select style={{ border: '1.5px solid #DBDBDB', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontFamily: 'inherit', color: '#262626', background: 'white', cursor: 'pointer' }}>
@@ -241,8 +293,15 @@ export default function HomePage() {
                     : <span style={{ fontSize: 36, fontWeight: 700, background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{salon.name?.[0] || 'S'}</span>}
                 </div>
                 <div style={{ padding: '16px 18px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', background: 'linear-gradient(135deg,#FFF0F5,#F5F0FF)', padding: '2px 10px', borderRadius: 100, marginBottom: 6, width: 'fit-content' }}>
-                    <span style={{ background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{salon.genre}</span>
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' as const }}>
+                    <div style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', background: 'linear-gradient(135deg,#FFF0F5,#F5F0FF)', padding: '2px 10px', borderRadius: 100, width: 'fit-content' }}>
+                      <span style={{ background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{salon.genre}</span>
+                    </div>
+                    {salon.sub_genre && (
+                      <div style={{ display: 'inline-block', fontSize: 10, fontWeight: 700, background: '#F5F0FF', padding: '2px 10px', borderRadius: 100, color: '#833AB4', width: 'fit-content' }}>
+                        {salon.sub_genre}
+                      </div>
+                    )}
                   </div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 4 }}>{salon.name}</div>
                   <div style={{ fontSize: 11, color: '#737373', marginBottom: 6, lineHeight: 1.5 }}>
