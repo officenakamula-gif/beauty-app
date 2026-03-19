@@ -39,7 +39,8 @@ export default function AuthPage() {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
         const { data: prof } = await supabase.from('profiles').select('role').eq('id', data.user.id).single()
-        if (prof?.role === 'salon') router.push('/dashboard')
+        if (prof?.role === 'admin') router.push('/admin')
+        else if (prof?.role === 'salon') router.push('/dashboard')
         else router.push('/')
       }
     } catch (err: any) {
