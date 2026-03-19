@@ -304,9 +304,10 @@ export default function HomePage() {
                     )}
                   </div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 4 }}>{salon.name}</div>
-                  <div style={{ fontSize: 11, color: '#737373', marginBottom: 6, lineHeight: 1.5 }}>
-                    {salon.area}&nbsp;&nbsp;{salon.address}
-                    {salon.nearest_station && <>&nbsp;&nbsp;/&nbsp;&nbsp;{salon.nearest_station}駅近</>}
+                  <div style={{ fontSize: 11, color: '#737373', marginBottom: 6, lineHeight: 1.7 }}>
+                    <span>{salon.area}　{salon.address}</span>
+                    {salon.nearest_station && <span style={{ color: '#BDBDBD', margin: '0 4px' }}>|</span>}
+                    {salon.nearest_station && <span>{salon.nearest_station}駅近く</span>}
                   </div>
                   {salon.description && (
                     <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6, flex: 1, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{salon.description}</div>

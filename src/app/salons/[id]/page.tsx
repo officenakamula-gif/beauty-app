@@ -362,10 +362,23 @@ export default function SalonDetailPage() {
                   </span>
                 </div>
                 <div style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 6 }}>{salon.name}</div>
-                <div style={{ fontSize: 12, color: '#737373', lineHeight: 1.9 }}>
-                  <div>📍 {salon.area}　{salon.address}</div>
-                  {salon.nearest_station && <div>🚉 {salon.nearest_station}駅近く</div>}
-                  {salon.phone && <div>📞 {salon.phone}</div>}
+                <div style={{ fontSize: 12, color: '#737373', lineHeight: 2.0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#BDBDBD', letterSpacing: '0.04em', flexShrink: 0 }}>住所</span>
+                    <span>{salon.area}　{salon.address}</span>
+                  </div>
+                  {salon.nearest_station && (
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#BDBDBD', letterSpacing: '0.04em', flexShrink: 0 }}>最寄駅</span>
+                      <span>{salon.nearest_station}駅近く</span>
+                    </div>
+                  )}
+                  {salon.phone && (
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#BDBDBD', letterSpacing: '0.04em', flexShrink: 0 }}>TEL</span>
+                      <span>{salon.phone}</span>
+                    </div>
+                  )}
                 </div>
               </div>
               {/* 予約ボタン（左カラム上部） */}
