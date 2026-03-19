@@ -4,11 +4,11 @@ import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { REGIONS } from '@/lib/areas'
+import { GENRE_GROUPS, getGenresByCategory } from '@/lib/genres'
 import { DAY_NAMES } from '@/lib/availability'
 import Link from 'next/link'
-import { sendEmail, emailTemplates } from '@/lib/email'
 
-const GENRES = ['ヘアサロン', 'ネイル・まつげ', 'リラク・エステ']
+const GENRES = ['ヘアサロン', 'ネイル・まつげ', 'リラク・エステ・脱毛']
 
 const grad = 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)'
 const gradText: any = { background: grad, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }
@@ -42,17 +42,20 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [uploading, setUploading] = useState(false)
-    const [tab, setTab] = useState<'salon' | 'menus' | 'stylists' | 'reservations' | 'users'>('salon')
+    const [tab, setTab] = useState<'salon' | 'menus' | 'stylists' | 'photos' | 'reservations' | 'users' | 'messages'>('salon')
     const [salonUsers, setSalonUsers] = useState<any[]>([])
     const [blocks, setBlocks] = useState<any[]>([])
     const [withdrawing, setWithdrawing] = useState(false)
+    const [salonPhotos, setSalonPhotos] = useState<any[]>([])
+    const [stylistPhotos, setStylistPhotos] = useState<any[]>([])
+    const [photoUploading, setPhotoUploading] = useState(false)
 
 
     const topImageRef = useRef<HTMLInputElement>(null)
     const galleryRef = useRef<HTMLInputElement>(null)
 
     const [salonForm, setSalonForm] = useState({
-        name: '', genre: 'ヘアサロン', prefecture: '北海道', area: '札幌市中央区',
+        name: '', genre: 'ヘアサロン', sub_genre: '', prefecture: '北海道', area: '札幌市中央区',
         address: '', nearest_station: '', description: '', phone: '', slot_interval: 30
     })
     const [menuForm, setMenuForm] = useState({ name: '', price: '', duration: '', description: '' })
@@ -76,7 +79,7 @@ export default function DashboardPage() {
             setSalon(salonData)
             const pref = findPrefForArea(salonData.area)
             setSalonForm({
-                name: salonData.name || '', genre: salonData.genre || 'ヘアサロン', prefecture: pref,
+                name: salonData.name || '', genre: salonData.genre || 'ヘアサロン', sub_genre: salonData.sub_genre || '', prefecture: pref,
                 area: salonData.area || '', address: salonData.address || '',
                 nearest_station: salonData.nearest_station || '', description: salonData.description || '',
                 phone: salonData.phone || '', slot_interval: salonData.slot_interval || 30,
@@ -125,6 +128,13 @@ export default function DashboardPage() {
                 .eq('blocker_id', user.id)
             setBlocks(blockData || [])
         }
+        // 写真取得
+            if (salonData) {
+                const { data: spData } = await supabase.from('salon_photos').select('*').eq('salon_id', salonData.id).order('created_at', { ascending: false })
+                setSalonPhotos(spData || [])
+                const { data: stpData } = await supabase.from('stylist_photos').select('*').eq('salon_id', salonData.id).order('created_at', { ascending: false })
+                setStylistPhotos(stpData || [])
+            }
         setLoading(false)
     }
 
@@ -171,7 +181,7 @@ export default function DashboardPage() {
         if (!salonForm.name || !salonForm.area || !salonForm.address) { alert('サロン名・エリア・住所は必須です'); return }
         setSaving(true)
         const payload = {
-            name: salonForm.name, genre: salonForm.genre, area: salonForm.area,
+            name: salonForm.name, genre: salonForm.genre, sub_genre: salonForm.sub_genre || null, area: salonForm.area,
             address: salonForm.address, nearest_station: salonForm.nearest_station,
             description: salonForm.description, phone: salonForm.phone, slot_interval: salonForm.slot_interval,
         }
@@ -261,49 +271,6 @@ export default function DashboardPage() {
     const updateReservationStatus = async (id: string, status: string) => {
         await supabase.from('reservations').update({ status }).eq('id', id)
         setReservations(reservations.map(r => r.id === id ? { ...r, status } : r))
-
-        // メール送信
-        const res = reservations.find(r => r.id === id)
-        if (!res) return
-        const dateStr = new Date(res.reserved_at).toLocaleString('ja-JP')
-        const menuName = res.menus?.name || ''
-        const salonName = salon?.name || ''
-
-        // 予約ユーザーのメールアドレスを取得
-        const { data: userProf } = await supabase
-            .from('profiles').select('username').eq('id', res.user_id).single()
-        const userEmail = userProf?.username || ''
-
-        // サロンオーナーのメールアドレスを取得
-        const { data: ownerProf } = await supabase
-            .from('profiles').select('username').eq('id', salon.owner_id).single()
-        const ownerEmail = ownerProf?.username || ''
-
-        if (status === 'confirmed') {
-            // ユーザーに確定メール
-            if (userEmail) await sendEmail(
-                userEmail,
-                ...Object.values(emailTemplates.reservationConfirmed(salonName, menuName, dateStr)) as [string, string]
-            )
-            // サロンに承認完了メール
-            if (ownerEmail) await sendEmail(
-                ownerEmail,
-                ...Object.values(emailTemplates.salonReservationConfirmed(userEmail, menuName, dateStr)) as [string, string]
-            )
-        }
-
-        if (status === 'cancelled') {
-            // ユーザーにキャンセルメール
-            if (userEmail) await sendEmail(
-                userEmail,
-                ...Object.values(emailTemplates.reservationCancelled(salonName, menuName, dateStr, 'cancelled')) as [string, string]
-            )
-            // サロンにキャンセルメール
-            if (ownerEmail) await sendEmail(
-                ownerEmail,
-                ...Object.values(emailTemplates.salonReservationCancelled(userEmail, menuName, dateStr, 'salon')) as [string, string]
-            )
-        }
     }
 
     const blockUser = async (userId: string, salonId: string) => {
@@ -327,6 +294,53 @@ export default function DashboardPage() {
         const { data } = await supabase.from('blocks').select('*').eq('blocker_id', user.id)
         setBlocks(data || [])
         alert('ブロックを解除しました')
+    }
+
+    const uploadSalonPhoto = async (file: File, category: string) => {
+        if (!salon) return
+        setPhotoUploading(true)
+        const url = await uploadImage(file, `salons/${salon.id}/photos`)
+        if (url) {
+            await supabase.from('salon_photos').insert({ salon_id: salon.id, image_url: url, category })
+            const { data } = await supabase.from('salon_photos').select('*').eq('salon_id', salon.id).order('created_at', { ascending: false })
+            setSalonPhotos(data || [])
+        }
+        setPhotoUploading(false)
+    }
+
+    const deleteSalonPhoto = async (photoId: string) => {
+        if (!confirm('この写真を削除しますか？')) return
+        await supabase.from('salon_photos').delete().eq('id', photoId)
+        setSalonPhotos(salonPhotos.filter(p => p.id !== photoId))
+    }
+
+    const uploadStylistPhoto = async (file: File, stylistId: string) => {
+        if (!salon) return
+        setPhotoUploading(true)
+        const url = await uploadImage(file, `salons/${salon.id}/stylist_photos`)
+        if (url) {
+            await supabase.from('stylist_photos').insert({ stylist_id: stylistId, salon_id: salon.id, image_url: url })
+            const { data } = await supabase.from('stylist_photos').select('*').eq('salon_id', salon.id).order('created_at', { ascending: false })
+            setStylistPhotos(data || [])
+        }
+        setPhotoUploading(false)
+    }
+
+    const deleteStylistPhoto = async (photoId: string) => {
+        if (!confirm('この写真を削除しますか？')) return
+        await supabase.from('stylist_photos').delete().eq('id', photoId)
+        setStylistPhotos(stylistPhotos.filter(p => p.id !== photoId))
+    }
+
+    const uploadMenuImage = async (file: File, menuId: string) => {
+        setPhotoUploading(true)
+        const url = await uploadImage(file, `salons/${salon.id}/menu_photos`)
+        if (url) {
+            await supabase.from('menus').update({ image_url: url }).eq('id', menuId)
+            const { data } = await supabase.from('menus').select('*').eq('salon_id', salon.id)
+            setMenus(data || [])
+        }
+        setPhotoUploading(false)
     }
 
     const handleWithdraw = async () => {
@@ -361,6 +375,7 @@ export default function DashboardPage() {
         { key: 'salon', label: 'サロン情報' },
         { key: 'menus', label: 'メニュー' },
         { key: 'stylists', label: 'スタイリスト' },
+        { key: 'photos', label: '写真管理' },
         { key: 'reservations', label: '予約管理' },
         { key: 'users', label: 'ユーザー管理' },
     ]
@@ -435,10 +450,18 @@ export default function DashboardPage() {
                                 <input value={salonForm.name} onChange={e => setSalonForm({ ...salonForm, name: e.target.value })} placeholder="例：SALON de BEAUTÉ" style={inputStyle} />
                             </div>
                             <div style={{ marginBottom: 14 }}>
-                                <label style={labelStyle}>ジャンル *</label>
-                                <select value={salonForm.genre} onChange={e => setSalonForm({ ...salonForm, genre: e.target.value })} style={{ ...inputStyle }}>
+                                <label style={labelStyle}>大カテゴリ *</label>
+                                <select value={salonForm.genre} onChange={e => setSalonForm({ ...salonForm, genre: e.target.value, sub_genre: '' })} style={{ ...inputStyle }}>
                                     {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
                                 </select>
+                            </div>
+                            <div style={{ marginBottom: 14 }}>
+                                <label style={labelStyle}>小ジャンル（サービス内容）</label>
+                                <select value={salonForm.sub_genre} onChange={e => setSalonForm({ ...salonForm, sub_genre: e.target.value })} style={{ ...inputStyle }}>
+                                    <option value=''>選択してください（任意）</option>
+                                    {getGenresByCategory(salonForm.genre).map(g => <option key={g} value={g}>{g}</option>)}
+                                </select>
+                                <div style={{ fontSize: 11, color: '#737373', marginTop: 4 }}>検索・一覧ページで絞り込みに使われます</div>
                             </div>
                             <div style={{ marginBottom: 14 }}>
                                 <label style={labelStyle}>都道府県 *</label>
@@ -540,12 +563,23 @@ export default function DashboardPage() {
                             {menus.length === 0 ? <div style={{ textAlign: 'center', color: '#737373', padding: '20px 0', fontSize: 13 }}>メニューがまだありません</div>
                                 : menus.map(menu => (
                                     <div key={menu.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '12px 0', borderBottom: '1px solid #DBDBDB' }}>
-                                        <div style={{ flex: 1 }}>
+                                        <div style={{ display: 'flex', gap: 10, flex: 1 }}>
+                                            {menu.image_url && (
+                                                <img src={menu.image_url} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />
+                                            )}
+                                            <div style={{ flex: 1 }}>
                                             <div style={{ fontSize: 14, fontWeight: 700 }}>{menu.name}</div>
                                             {menu.description && <div style={{ fontSize: 11, color: '#737373', marginTop: 2, lineHeight: 1.5 }}>{menu.description}</div>}
                                             <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4, ...gradText }}>¥{menu.price.toLocaleString()}&nbsp;&nbsp;<span style={{ fontSize: 11, color: '#737373', background: 'none', WebkitTextFillColor: '#737373' }}>{menu.duration}分</span></div>
+                                            </div>
                                         </div>
-                                        <button onClick={() => deleteMenu(menu.id)} style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #FFCDD2', background: '#FFEBEE', color: '#C62828', padding: '4px 10px', borderRadius: 8, cursor: 'pointer', marginLeft: 12, flexShrink: 0, fontFamily: 'inherit' }}>削除</button>
+                                        <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginLeft: 12, alignItems: 'center' }}>
+                                            <label style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #DBDBDB', background: '#FAFAFA', color: '#262626', padding: '4px 10px', borderRadius: 8, cursor: 'pointer' }}>
+                                                {menu.image_url ? '写真変更' : '写真追加'}
+                                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadMenuImage(f, menu.id) }} />
+                                            </label>
+                                            <button onClick={() => deleteMenu(menu.id)} style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #FFCDD2', background: '#FFEBEE', color: '#C62828', padding: '4px 10px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>削除</button>
+                                        </div>
                                     </div>
                                 ))}
                         </div>
@@ -704,6 +738,96 @@ export default function DashboardPage() {
                             ))}
                     </div>
                 )}
+                {/* PHOTOS TAB */}
+                {tab === 'photos' && (
+                    <div>
+                        {/* サロンスタイル写真 */}
+                        <div style={card}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>
+                                サロン・スタイル写真
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                                {[{ key: 'style', label: 'スタイル写真' }, { key: 'interior', label: '店内・雰囲気' }, { key: 'other', label: 'その他' }].map(cat => (
+                                    <label key={cat.key} style={{ fontSize: 12, fontWeight: 700, background: grad, color: 'white', padding: '7px 14px', borderRadius: 8, cursor: 'pointer', flexShrink: 0 }}>
+                                        + {cat.label}を追加
+                                        <input type="file" accept="image/*" multiple style={{ display: 'none' }}
+                                            onChange={async e => {
+                                                const files = Array.from(e.target.files || [])
+                                                for (const f of files) await uploadSalonPhoto(f, cat.key)
+                                            }} />
+                                    </label>
+                                ))}
+                            </div>
+                            {salonPhotos.length === 0 ? (
+                                <div style={{ textAlign: 'center', color: '#737373', padding: '24px 0', fontSize: 13 }}>写真がまだありません</div>
+                            ) : (
+                                <div>
+                                    {['style', 'interior', 'other'].map(cat => {
+                                        const photos = salonPhotos.filter(p => p.category === cat)
+                                        if (photos.length === 0) return null
+                                        const catLabel: any = { style: 'スタイル写真', interior: '店内・雰囲気', other: 'その他' }
+                                        return (
+                                            <div key={cat} style={{ marginBottom: 20 }}>
+                                                <div style={{ fontSize: 11, fontWeight: 700, color: '#737373', marginBottom: 10 }}>{catLabel[cat]}</div>
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+                                                    {photos.map(photo => (
+                                                        <div key={photo.id} style={{ position: 'relative' }}>
+                                                            <img src={photo.image_url} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8 }} />
+                                                            <button onClick={() => deleteSalonPhoto(photo.id)}
+                                                                style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', width: 22, height: 22, borderRadius: '50%', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                            {photoUploading && <div style={{ textAlign: 'center', color: '#737373', fontSize: 12, marginTop: 8 }}>アップロード中...</div>}
+                        </div>
+
+                        {/* スタイリスト作品集 */}
+                        <div style={card}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>
+                                スタイリスト作品集
+                            </div>
+                            {stylists.length === 0 ? (
+                                <div style={{ textAlign: 'center', color: '#737373', fontSize: 13, padding: '20px 0' }}>スタイリストを先に登録してください</div>
+                            ) : stylists.map(s => (
+                                <div key={s.id} style={{ marginBottom: 24, paddingBottom: 24, borderBottom: '1px solid #DBDBDB' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#FBE0EC,#EED9F7)', overflow: 'hidden', flexShrink: 0 }}>
+                                            {s.image_url ? <img src={s.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, ...gradText }}>{s.name?.[0]}</div>}
+                                        </div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>{s.name}</div>
+                                        <label style={{ fontSize: 11, fontWeight: 700, background: 'none', border: '1.5px solid #DBDBDB', color: '#262626', padding: '4px 12px', borderRadius: 8, cursor: 'pointer', marginLeft: 'auto' }}>
+                                            + 写真追加
+                                            <input type="file" accept="image/*" multiple style={{ display: 'none' }}
+                                                onChange={async e => {
+                                                    const files = Array.from(e.target.files || [])
+                                                    for (const f of files) await uploadStylistPhoto(f, s.id)
+                                                }} />
+                                        </label>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+                                        {stylistPhotos.filter(p => p.stylist_id === s.id).map(photo => (
+                                            <div key={photo.id} style={{ position: 'relative' }}>
+                                                <img src={photo.image_url} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8 }} />
+                                                <button onClick={() => deleteStylistPhoto(photo.id)}
+                                                    style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', width: 22, height: 22, borderRadius: '50%', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                                            </div>
+                                        ))}
+                                        {stylistPhotos.filter(p => p.stylist_id === s.id).length === 0 && (
+                                            <div style={{ gridColumn: '1/-1', textAlign: 'center', color: '#737373', fontSize: 12, padding: '12px 0' }}>まだ写真がありません</div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* USERS TAB */}
                 {tab === 'users' && (
                     <div style={card}>

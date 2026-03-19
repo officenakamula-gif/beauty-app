@@ -73,8 +73,10 @@ export default function SalonDetailPage() {
   const [stylists, setStylists] = useState<any[]>([])
   const [user, setUser] = useState<any>(null)
   const [userProfile, setUserProfile] = useState<any>(null)
-  const [infoTab, setInfoTab] = useState<'info' | 'booking' | 'stylists'>('info')
+  const [infoTab, setInfoTab] = useState<'info' | 'styles' | 'booking' | 'stylists'>('info')
   const [recentSalons, setRecentSalons] = useState<{ id: string; name: string; area: string }[]>([])
+  const [salonPhotos, setSalonPhotos] = useState<any[]>([])
+  const [stylistPhotos, setStylistPhotos] = useState<any[]>([])
 
   const [step, setStep] = useState(1)
   const [selectedMenu, setSelectedMenu] = useState<any>(null)
@@ -117,6 +119,10 @@ export default function SalonDetailPage() {
     setMenus(menuData || [])
     const { data: stylistData } = await supabase.from('stylists').select('*').eq('salon_id', id).eq('is_active', true)
     setStylists(stylistData || [])
+    const { data: salonPhotoData } = await supabase.from('salon_photos').select('*').eq('salon_id', id).order('created_at', { ascending: false })
+    setSalonPhotos(salonPhotoData || [])
+    const { data: stylistPhotoData } = await supabase.from('stylist_photos').select('*').eq('salon_id', id).order('created_at', { ascending: false })
+    setStylistPhotos(stylistPhotoData || [])
     const { data: { user: currentUser } } = await supabase.auth.getUser()
     if (currentUser) {
       const { data: blockData } = await supabase
@@ -394,6 +400,7 @@ export default function SalonDetailPage() {
           <div style={{ background: 'white', border: '1px solid #DBDBDB', borderTop: 'none', display: 'flex', overflowX: 'auto', marginBottom: 0 }}>
             {([
               { key: 'info', label: 'サロン情報' },
+              { key: 'styles', label: 'スタイル' },
               { key: 'booking', label: '予約する' },
               { key: 'stylists', label: 'スタイリスト' },
             ] as const).map(t => (
@@ -430,13 +437,13 @@ export default function SalonDetailPage() {
                   </div>
                 )}
 
-                {/* ギャラリー */}
-                {(salon.gallery_images || []).length > 0 && (
+                {/* 店内・雰囲気写真（salon_photosのinterior） */}
+                {salonPhotos.filter(p => p.category === 'interior').length > 0 && (
                   <div style={{ marginBottom: 24 }}>
-                    <div style={sectionTitle}>店内・サロン画像</div>
+                    <div style={sectionTitle}>店内・雰囲気</div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
-                      {salon.gallery_images.map((url: string, i: number) => (
-                        <img key={i} src={url} alt="" style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover', borderRadius: 8 }} />
+                      {salonPhotos.filter(p => p.category === 'interior').map(photo => (
+                        <img key={photo.id} src={photo.image_url} alt={photo.caption || ''} style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover', borderRadius: 8 }} />
                       ))}
                     </div>
                   </div>
@@ -449,7 +456,11 @@ export default function SalonDetailPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {menus.map(menu => (
                         <div key={menu.id}
-                          style={{ border: '1px solid #DBDBDB', borderRadius: 10, padding: '14px 16px', background: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                          style={{ border: '1px solid #DBDBDB', borderRadius: 10, overflow: 'hidden', background: 'white' }}>
+                          {menu.image_url && (
+                            <img src={menu.image_url} alt={menu.name} style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }} />
+                          )}
+                          <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontSize: 14, fontWeight: 700, color: '#111', marginBottom: 3 }}>{menu.name}</div>
                             {menu.description && (
@@ -465,6 +476,7 @@ export default function SalonDetailPage() {
                               style={{ marginTop: 6, background: grad, color: 'white', border: 'none', padding: '5px 14px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' as const }}>
                               このメニューで予約
                             </button>
+                          </div>
                           </div>
                         </div>
                       ))}
@@ -490,6 +502,59 @@ export default function SalonDetailPage() {
                   </table>
                 </div>
 
+              </div>
+            )}
+
+            {/* ── スタイルタブ ── */}
+            {infoTab === 'styles' && (
+              <div>
+                {/* サロンのスタイル写真 */}
+                {salonPhotos.filter(p => p.category === 'style').length > 0 ? (
+                  <div style={{ marginBottom: 24 }}>
+                    <div style={sectionTitle}>スタイル・施術例</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                      {salonPhotos.filter(p => p.category === 'style').map(photo => (
+                        <div key={photo.id}>
+                          <img src={photo.image_url} alt={photo.caption || ''} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 10 }} />
+                          {photo.caption && <div style={{ fontSize: 11, color: '#737373', marginTop: 4, textAlign: 'center' }}>{photo.caption}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', color: '#737373', padding: '32px 0', fontSize: 13 }}>スタイル写真はまだありません</div>
+                )}
+
+                {/* スタイリスト別作品集 */}
+                {stylists.length > 0 && stylistPhotos.length > 0 && (
+                  <div>
+                    <div style={sectionTitle}>スタイリスト別作品集</div>
+                    {stylists.map(s => {
+                      const photos = stylistPhotos.filter(p => p.stylist_id === s.id)
+                      if (photos.length === 0) return null
+                      return (
+                        <div key={s.id} style={{ marginBottom: 24 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#FBE0EC,#EED9F7)', overflow: 'hidden', flexShrink: 0 }}>
+                              {s.image_url
+                                ? <img src={s.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, ...gradText }}>{s.name?.[0]}</div>}
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>{s.name}</div>
+                              {s.role && <div style={{ fontSize: 11, ...gradText }}>{s.role}</div>}
+                            </div>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
+                            {photos.map(photo => (
+                              <img key={photo.id} src={photo.image_url} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8 }} />
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
