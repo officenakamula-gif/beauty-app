@@ -44,6 +44,7 @@ export default function DashboardPage() {
     const [tab, setTab] = useState<'salon' | 'menus' | 'stylists' | 'reservations' | 'users'>('salon')
     const [salonUsers, setSalonUsers] = useState<any[]>([])
     const [blocks, setBlocks] = useState<any[]>([])
+    const [withdrawing, setWithdrawing] = useState(false)
 
 
     const topImageRef = useRef<HTMLInputElement>(null)
@@ -284,6 +285,24 @@ export default function DashboardPage() {
         alert('ブロックを解除しました')
     }
 
+    const handleWithdraw = async () => {
+        if (!confirm('退会しますか？\n\nサロン情報・予約データは保持されますが、ログインできなくなります。\nこの操作は取り消せません。')) return
+        if (!confirm('本当に退会しますか？')) return
+        setWithdrawing(true)
+        try {
+            await supabase.from('profiles').update({
+                is_deleted: true,
+                deleted_at: new Date().toISOString(),
+            }).eq('id', user.id)
+            await supabase.auth.signOut()
+            alert('退会処理が完了しました。ご利用ありがとうございました。')
+            router.push('/')
+        } catch (err: any) {
+            alert('エラーが発生しました: ' + err.message)
+            setWithdrawing(false)
+        }
+    }
+
     if (loading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ color: '#737373' }}>読み込み中...</div></div>
 
     const statusConfig: any = {
@@ -422,6 +441,25 @@ export default function DashboardPage() {
                             <button onClick={saveSalon} disabled={saving}
                                 style={{ width: '100%', background: grad, color: 'white', border: 'none', padding: 13, borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: saving ? 0.6 : 1 }}>
                                 {saving ? '保存中...' : salon ? '更新する' : '登録する'}
+                            </button>
+                        </div>
+                    </div>
+                )}
+                {/* 退会セクション（サロン情報タブ内） */}
+                {tab === 'salon' && (
+                    <div style={{ marginTop: 8, borderTop: '1px solid #DBDBDB', paddingTop: 24 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', marginBottom: 8 }}>アカウント</div>
+                        <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: '20px 24px' }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#262626', marginBottom: 6 }}>退会する</div>
+                            <div style={{ fontSize: 12, color: '#737373', lineHeight: 1.8, marginBottom: 16 }}>
+                                退会してもサロン情報・予約データは保持されます。<br />
+                                退会後は同じメールアドレスで再登録が可能です。
+                            </div>
+                            <button
+                                onClick={handleWithdraw}
+                                disabled={withdrawing}
+                                style={{ fontSize: 12, color: '#C62828', border: '1.5px solid #FFCDD2', background: '#FFEBEE', padding: '8px 20px', borderRadius: 8, cursor: withdrawing ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontWeight: 700, opacity: withdrawing ? 0.6 : 1 }}>
+                                {withdrawing ? '処理中...' : '退会する'}
                             </button>
                         </div>
                     </div>

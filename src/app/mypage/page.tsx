@@ -10,6 +10,7 @@ export default function MyPage() {
   const [user, setUser] = useState<any>(null)
   const [reservations, setReservations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [withdrawing, setWithdrawing] = useState(false)
 
   useEffect(() => { init() }, [])
 
@@ -30,6 +31,25 @@ export default function MyPage() {
     if (!confirm('予約をキャンセルしますか？')) return
     await supabase.from('reservations').update({ status: 'cancelled' }).eq('id', id)
     setReservations(reservations.map(r => r.id === id ? { ...r, status: 'cancelled' } : r))
+  }
+
+  // 退会処理（データは残す・フラグのみ更新）
+  const handleWithdraw = async () => {
+    if (!confirm('退会しますか？\n\n予約履歴などのデータは保持されますが、ログインできなくなります。\nこの操作は取り消せません。')) return
+    if (!confirm('本当に退会しますか？')) return
+    setWithdrawing(true)
+    try {
+      await supabase.from('profiles').update({
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+      }).eq('id', user.id)
+      await supabase.auth.signOut()
+      alert('退会処理が完了しました。ご利用ありがとうございました。')
+      router.push('/')
+    } catch (err: any) {
+      alert('エラーが発生しました: ' + err.message)
+      setWithdrawing(false)
+    }
   }
 
   if (loading) return (
@@ -90,7 +110,13 @@ export default function MyPage() {
     <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
       <header style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Link href="/" style={{ fontSize: 20, fontWeight: 700, textDecoration: 'none', ...gradText }}>Salon de Beauty</Link>
-        <span style={{ fontSize: 12, color: '#737373' }}>{user?.email}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 12, color: '#737373' }}>{user?.email}</span>
+          <button onClick={async () => { await supabase.auth.signOut(); router.push('/') }}
+            style={{ fontSize: 12, border: '1.5px solid #DBDBDB', background: 'none', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: '#262626' }}>
+            ログアウト
+          </button>
+        </div>
       </header>
 
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '24px 32px' }}>
@@ -110,6 +136,25 @@ export default function MyPage() {
             {pastRes.map(r => <Card key={r.id} res={r} past={true} />)}
           </>
         )}
+
+        {/* 退会セクション */}
+        <div style={{ marginTop: 48, borderTop: '1px solid #DBDBDB', paddingTop: 32 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#737373', marginBottom: 8 }}>アカウント</div>
+          <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: '20px 24px' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#262626', marginBottom: 6 }}>退会する</div>
+            <div style={{ fontSize: 12, color: '#737373', lineHeight: 1.8, marginBottom: 16 }}>
+              退会してもご予約履歴などのデータは保持されます。<br />
+              退会後は同じメールアドレスで再登録が可能です。
+            </div>
+            <button
+              onClick={handleWithdraw}
+              disabled={withdrawing}
+              style={{ fontSize: 12, color: '#C62828', border: '1.5px solid #FFCDD2', background: '#FFEBEE', padding: '8px 20px', borderRadius: 8, cursor: withdrawing ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontWeight: 700, opacity: withdrawing ? 0.6 : 1 }}>
+              {withdrawing ? '処理中...' : '退会する'}
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   )
