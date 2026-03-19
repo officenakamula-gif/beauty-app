@@ -70,8 +70,14 @@ export default function AdminPage() {
   }
 
   const fetchSalons = async () => {
-    const { data } = await supabase.from('salons').select('*').order('created_at', { ascending: false })
-    setSalons(data || [])
+    const { data: salonData } = await supabase.from('salons').select('*').order('created_at', { ascending: false })
+    if (!salonData) { setSalons([]); return }
+    // オーナーのメールアドレスを取得して結合
+    const ownerIds = [...new Set(salonData.map((s: any) => s.owner_id).filter(Boolean))]
+    const { data: profileData } = await supabase.from('profiles').select('id, username, full_name').in('id', ownerIds)
+    const profileMap: Record<string, any> = {}
+    for (const p of profileData || []) profileMap[p.id] = p
+    setSalons(salonData.map((s: any) => ({ ...s, ownerProfile: profileMap[s.owner_id] || null })))
   }
 
   const fetchUsers = async () => {
@@ -271,7 +277,11 @@ export default function AdminPage() {
                       {s.genre}　{s.area}　{s.address}
                     </div>
                     <div style={{ fontSize: 11, color: '#737373' }}>
-                      登録日：{new Date(s.created_at).toLocaleDateString('ja-JP')}
+                      {s.ownerProfile?.full_name && <span>{s.ownerProfile.full_name}　</span>}
+                      {s.ownerProfile?.username || '不明'}
+                    </div>
+                    <div style={{ fontSize: 10, color: '#BDBDBD' }}>
+                      登録：{new Date(s.created_at).toLocaleDateString('ja-JP')}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 12 }}>
