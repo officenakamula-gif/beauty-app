@@ -55,7 +55,7 @@ export default function AuthPage() {
               phone: phone || null,
               display_name: displayName || null,
             })
-            alert('登録完了！確認メールをご確認ください。')
+            alert('確認メールを送信しました。\nメール内のリンクをクリックして登録を完了してください。')
             router.push('/')
           } else {
             // サロン → 承認待ちで仮登録
@@ -79,8 +79,8 @@ export default function AuthPage() {
               is_active: false,
               status: 'pending',
             })
-            alert('申請を受け付けました！\n\n管理者が内容を確認後、掲載を承認します。\n承認されるとメールでご連絡します。\n\nそれまでの間、ダッシュボードからサロン情報を入力しておいてください。')
-            router.push('/dashboard')
+            alert('確認メールを送信しました。\nメール内のリンクをクリックして登録を完了してください。\n\n※認証後はダッシュボードからサロン情報を入力しておいてください。\n管理者審査後に掲載が開始されます。')
+            router.push('/')
           }
         }
       } else {
