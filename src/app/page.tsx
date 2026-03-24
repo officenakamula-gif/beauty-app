@@ -120,6 +120,11 @@ export default function HomePage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
+      {/* 上部バー */}
+      <div style={{ background: '#333', color: '#ccc', fontSize: 11, textAlign: 'center', padding: '5px 0', letterSpacing: '0.03em' }}>
+        美容サロンの検索・予約サイト｜Salon de Beauty
+      </div>
+
       {/* Header */}
       <header style={s.header}>
         <div style={s.logo}>Salon de Beauty</div>
@@ -340,7 +345,7 @@ export default function HomePage() {
                 <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 2 }}>こんにちは</div>
                 <div style={{ fontSize: 11, color: '#737373', marginBottom: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {[{ label: '予約履歴', href: '/mypage' }, { label: 'お気に入りサロン', href: '#' }, { label: 'プロフィール編集', href: '#' }].map(item => (
+                  {[{ label: '予約履歴', href: '/mypage' }, { label: 'プロフィール編集', href: '/mypage' }].map(item => (
                     <a key={item.label} href={item.href} style={{ fontSize: 12, color: '#111', display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid #DBDBDB', textDecoration: 'none' }}>
                       {item.label}<span style={{ color: '#737373' }}>›</span>
                     </a>
@@ -531,6 +536,49 @@ export default function HomePage() {
 
         </div>
       </div>
+
+      {/* フッター */}
+      <footer style={{ background: '#222', color: '#999', padding: '32px 32px 24px', marginTop: 0 }}>
+
+        <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap' as const, gap: 24, marginBottom: 24 }}>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: 8 }}>
+                Salon de Beauty
+              </div>
+              <div style={{ fontSize: 12, color: '#777', lineHeight: 1.8 }}>
+                美容サロンの検索・予約サイト
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' as const }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#555', letterSpacing: '0.08em', marginBottom: 10 }}>サービス</div>
+                <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
+                  <Link href="/" style={{ fontSize: 12, color: '#999', textDecoration: 'none' }}>サロンを探す</Link>
+                  <Link href="/auth" style={{ fontSize: 12, color: '#999', textDecoration: 'none' }}>会員登録</Link>
+                  <Link href="/auth" style={{ fontSize: 12, color: '#999', textDecoration: 'none' }}>サロン掲載</Link>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#555', letterSpacing: '0.08em', marginBottom: 10 }}>ガイド・規約</div>
+                <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
+                  <Link href="/guide" style={{ fontSize: 12, color: '#999', textDecoration: 'none' }}>ご利用ガイド</Link>
+                  <Link href="/terms" style={{ fontSize: 12, color: '#999', textDecoration: 'none' }}>利用規約</Link>
+                  <Link href="/privacy" style={{ fontSize: 12, color: '#999', textDecoration: 'none' }}>プライバシーポリシー</Link>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style={{ borderTop: '1px solid #333', paddingTop: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' as const, gap: 12 }}>
+            <div style={{ fontSize: 11, color: '#555' }}>© 2026 Salon de Beauty. All rights reserved.</div>
+            <div style={{ display: 'flex', gap: 20 }}>
+              <Link href="/terms" style={{ fontSize: 11, color: '#555', textDecoration: 'none' }}>利用規約</Link>
+              <Link href="/privacy" style={{ fontSize: 11, color: '#555', textDecoration: 'none' }}>プライバシーポリシー</Link>
+              <Link href="/guide" style={{ fontSize: 11, color: '#555', textDecoration: 'none' }}>ご利用ガイド</Link>
+            </div>
+          </div>
+        </div>
+      </footer>
 
     </div>
   )
