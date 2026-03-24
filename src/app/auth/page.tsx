@@ -43,7 +43,17 @@ export default function AuthPage() {
     setLoading(true)
     try {
       if (mode === 'register') {
-        const { data, error } = await supabase.auth.signUp({ email, password })
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              role,
+              full_name: role === 'user' ? fullName : representativeName,
+              salon_name: role === 'salon' ? salonName : null,
+            }
+          }
+        })
         if (error) throw error
         if (data.user) {
           if (role === 'user') {
@@ -54,7 +64,7 @@ export default function AuthPage() {
               full_name: fullName,
               phone: phone || null,
               display_name: displayName || null,
-            })
+            }, { onConflict: 'id' })
             alert('確認メールを送信しました。\nメール内のリンクをクリックして登録を完了してください。')
             router.push('/')
           } else {
@@ -68,17 +78,22 @@ export default function AuthPage() {
               salon_phone: salonPhone,
               representative_name: representativeName,
               business_type: businessType,
-            })
-            await supabase.from('salons').insert({
-              owner_id: data.user.id,
-              name: salonName,
-              phone: salonPhone,
-              genre: 'ヘアサロン',
-              area: '',
-              address: '',
-              is_active: false,
-              status: 'pending',
-            })
+            }, { onConflict: 'id' })
+            // 既にsalonが作られていない場合のみinsert
+            const { data: existingSalon } = await supabase
+              .from('salons').select('id').eq('owner_id', data.user.id).maybeSingle()
+            if (!existingSalon) {
+              await supabase.from('salons').insert({
+                owner_id: data.user.id,
+                name: salonName,
+                phone: salonPhone,
+                genre: 'ヘアサロン',
+                area: '',
+                address: '',
+                is_active: false,
+                status: 'pending',
+              })
+            }
             alert('確認メールを送信しました。\nメール内のリンクをクリックして登録を完了してください。\n\n※認証後はダッシュボードからサロン情報を入力しておいてください。\n管理者審査後に掲載が開始されます。')
             router.push('/')
           }
