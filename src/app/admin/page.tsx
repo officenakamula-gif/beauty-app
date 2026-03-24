@@ -74,9 +74,11 @@ export default function AdminPage() {
   const fetchSalons = async () => {
     const { data: salonData } = await supabase.from('salons').select('*').order('created_at', { ascending: false })
     if (!salonData) { setSalons([]); return }
-    // オーナーのメールアドレスを取得して結合
     const ownerIds = [...new Set(salonData.map((s: any) => s.owner_id).filter(Boolean))]
-    const { data: profileData } = await supabase.from('profiles').select('id, username, full_name').in('id', ownerIds)
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('id, username, full_name, representative_name, business_type, salon_phone, phone')
+      .in('id', ownerIds)
     const profileMap: Record<string, any> = {}
     for (const p of profileData || []) profileMap[p.id] = p
     setSalons(salonData.map((s: any) => ({ ...s, ownerProfile: profileMap[s.owner_id] || null })))
@@ -317,7 +319,7 @@ export default function AdminPage() {
               ) : filteredSalons.map(s => (
                 <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #F2F2F2' }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                       <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{s.name}</span>
                       {s.status === 'pending' ? (
                         <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#FFF8E1', color: '#F57F17' }}>審査待ち</span>
@@ -329,16 +331,40 @@ export default function AdminPage() {
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: 11, color: '#737373' }}>
-                      {s.genre}　{s.area}　{s.address}
-                    </div>
-                    <div style={{ fontSize: 11, color: '#737373' }}>
-                      {s.ownerProfile?.full_name && <span>{s.ownerProfile.full_name}　</span>}
-                      {s.ownerProfile?.username || '不明'}
-                    </div>
-                    <div style={{ fontSize: 10, color: '#BDBDBD' }}>
-                      登録：{new Date(s.created_at).toLocaleDateString('ja-JP')}
-                    </div>
+                    <table style={{ fontSize: 11, borderCollapse: 'collapse' as const, marginBottom: 4 }}>
+                      <tbody>
+                        <tr>
+                          <td style={{ color: '#BDBDBD', paddingRight: 12, paddingBottom: 2, whiteSpace: 'nowrap' as const }}>担当者</td>
+                          <td style={{ color: '#111', paddingBottom: 2 }}>{s.ownerProfile?.representative_name || s.ownerProfile?.full_name || '未入力'}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: '#BDBDBD', paddingRight: 12, paddingBottom: 2 }}>区分</td>
+                          <td style={{ color: '#111', paddingBottom: 2 }}>{s.ownerProfile?.business_type === 'corporate' ? '法人' : s.ownerProfile?.business_type === 'individual' ? '個人' : '未入力'}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: '#BDBDBD', paddingRight: 12, paddingBottom: 2 }}>サロンTEL</td>
+                          <td style={{ paddingBottom: 2 }}>
+                            {s.ownerProfile?.salon_phone || s.phone
+                              ? <a href={`tel:${s.ownerProfile?.salon_phone || s.phone}`} style={{ color: '#E1306C', fontWeight: 700, textDecoration: 'none' }}>{s.ownerProfile?.salon_phone || s.phone}</a>
+                              : <span style={{ color: '#BDBDBD' }}>未入力</span>}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: '#BDBDBD', paddingRight: 12, paddingBottom: 2 }}>メール</td>
+                          <td style={{ color: '#111', paddingBottom: 2 }}>{s.ownerProfile?.username || '不明'}</td>
+                        </tr>
+                        {(s.area || s.address) && (
+                          <tr>
+                            <td style={{ color: '#BDBDBD', paddingRight: 12, paddingBottom: 2 }}>住所</td>
+                            <td style={{ color: '#111', paddingBottom: 2 }}>{[s.genre, s.area, s.address].filter(Boolean).join('　')}</td>
+                          </tr>
+                        )}
+                        <tr>
+                          <td style={{ color: '#BDBDBD', paddingRight: 12 }}>登録日</td>
+                          <td style={{ color: '#BDBDBD' }}>{new Date(s.created_at).toLocaleDateString('ja-JP')}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 12, flexWrap: 'wrap' as const, justifyContent: 'flex-end' }}>
                     {s.status === 'pending' ? (
