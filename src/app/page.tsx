@@ -384,6 +384,120 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* ── サロンオーナー向けセクション ── */}
+      <div style={{ background: '#FAFAFA', borderTop: '1px solid #DBDBDB', padding: '60px 32px 80px' }}>
+        <div style={{ maxWidth: 860, margin: '0 auto' }}>
+
+          {/* ヒーロー */}
+          <div style={{ background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', borderRadius: 20, padding: '48px 40px', textAlign: 'center', marginBottom: 32 }}>
+            <div style={{ display: 'inline-block', background: 'rgba(255,255,255,0.18)', color: 'white', fontSize: 11, fontWeight: 700, padding: '4px 14px', borderRadius: 100, marginBottom: 16, letterSpacing: '0.08em' }}>
+              ベータ期間中・完全無料
+            </div>
+            <div style={{ fontSize: 26, fontWeight: 700, color: 'white', lineHeight: 1.5, marginBottom: 12 }}>
+              あなたのサロンを<br />Salon de Beautyに掲載しませんか
+            </div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.9, marginBottom: 28 }}>
+              月額数万円の予約サービスと同じ機能を、今なら無料で。<br />
+              ネット予約・写真掲載・スタッフ管理まですべて揃っています。
+            </div>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' as const }}>
+              <Link href="/auth" style={{ background: 'white', color: '#E1306C', fontSize: 14, fontWeight: 700, padding: '12px 28px', borderRadius: 10, textDecoration: 'none', display: 'inline-block' }}>
+                無料で掲載を始める
+              </Link>
+            </div>
+          </div>
+
+          {/* 数字 */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
+            {[
+              { num: '¥0', label: 'ベータ期間中の月額' },
+              { num: '24h', label: 'ネット予約受付' },
+              { num: '5分', label: '登録所要時間' },
+            ].map(s => (
+              <div key={s.num} style={{ background: 'white', borderRadius: 12, border: '1px solid #DBDBDB', padding: '18px 16px', textAlign: 'center' }}>
+                <div style={{ fontSize: 26, fontWeight: 700, background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{s.num}</div>
+                <div style={{ fontSize: 11, color: '#737373', marginTop: 4 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* 比較訴求 */}
+          <div style={{ background: 'white', borderLeft: '3px solid #E1306C', borderRadius: '0 12px 12px 0', padding: '18px 22px', marginBottom: 32 }}>
+            <div style={{ fontSize: 13, color: '#555', lineHeight: 2.2 }}>
+              大手予約サービスの月額は<span style={{ fontWeight: 700, color: '#111' }}>数万円〜10万円以上</span>が一般的です。<br />
+              Salon de Beautyなら同等の機能を<span style={{ fontWeight: 700, color: '#E1306C' }}>ベータ期間中は完全無料</span>で利用できます。<br />
+              ベータ期間終了後も<span style={{ fontWeight: 700, color: '#111' }}>無料プランは継続</span>、有料プランも相場より大幅に安く提供予定です。<br />
+              <span style={{ fontSize: 11, color: '#BDBDBD' }}>※ベータ期間の終了時期は未定です。終了の際は事前にメールでお知らせします。</span>
+            </div>
+          </div>
+
+          {/* 機能一覧 */}
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#111', textAlign: 'center', marginBottom: 20 }}>無料でできること</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10, marginBottom: 32 }}>
+            {[
+              { title: 'サロン情報・写真掲載', desc: 'メニュー・スタイリスト・施術写真を自由に登録' },
+              { title: '24時間ネット予約', desc: '電話対応なしで予約受付。承認・キャンセルも管理画面から' },
+              { title: 'スタイリスト管理', desc: 'スタッフ別の稼働スケジュールと指名予約に対応' },
+              { title: '予約・来店管理', desc: '予約一覧・承認・キャンセル・来店完了を一画面で管理' },
+              { title: 'メール自動通知', desc: '予約申請・確定・キャンセル時にお客様・サロン双方へ自動送信' },
+              { title: '検索・ジャンル掲載', desc: 'エリア・ジャンル・キーワード検索でユーザーに見つけてもらえます' },
+            ].map(f => (
+              <div key={f.title} style={{ background: 'white', borderRadius: 12, border: '1px solid #DBDBDB', padding: '16px 18px', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'white', flexShrink: 0 }}>+</div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#111', marginBottom: 4 }}>{f.title}</div>
+                  <div style={{ fontSize: 11, color: '#737373', lineHeight: 1.7 }}>{f.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 掲載の流れ */}
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#111', textAlign: 'center', marginBottom: 20 }}>掲載までの流れ</div>
+          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 10, marginBottom: 32 }}>
+            {[
+              { n: 1, title: '申請フォームに入力（約5分）', desc: 'サロン名・電話番号・担当者名を入力するだけ' },
+              { n: 2, title: '確認後、掲載開始のご連絡', desc: '掲載開始までの間にダッシュボードからサロン情報・写真を入力できます' },
+              { n: 3, title: '掲載開始・予約受付スタート', desc: 'ユーザーからの予約が届き始めます' },
+            ].map(s => (
+              <div key={s.n} style={{ background: 'white', borderRadius: 12, border: '1px solid #DBDBDB', padding: '16px 18px', display: 'flex', gap: 16, alignItems: 'center' }}>
+                <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'white', flexShrink: 0 }}>{s.n}</div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>{s.title}</div>
+                  <div style={{ fontSize: 11, color: '#737373', marginTop: 2 }}>{s.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 安心訴求 */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 32 }}>
+            {[
+              { title: 'いつでも退会', desc: '契約期間の縛りなし。気軽に始められます' },
+              { title: '個人も歓迎', desc: '個人サロン・自宅サロン・開業したてのサロンも大歓迎' },
+              { title: '小規模でもOK', desc: 'スタッフ1名のサロンでもすべての機能が使えます' },
+            ].map(s => (
+              <div key={s.title} style={{ background: 'white', borderRadius: 12, border: '1px solid #DBDBDB', padding: '18px 16px', textAlign: 'center' }}>
+                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8, background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{s.title}</div>
+                <div style={{ fontSize: 11, color: '#737373', lineHeight: 1.7 }}>{s.desc}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* 最終CTA */}
+          <div style={{ background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', borderRadius: 16, padding: '32px', textAlign: 'center' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.1em', marginBottom: 8 }}>ベータ期間中・完全無料</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'white', marginBottom: 8 }}>今すぐ無料で掲載を始める</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', marginBottom: 24 }}>クレジットカード不要・いつでも退会可能</div>
+            <Link href="/auth" style={{ background: 'white', color: '#E1306C', fontSize: 14, fontWeight: 700, padding: '12px 40px', borderRadius: 10, textDecoration: 'none', display: 'inline-block' }}>
+              無料で申請する
+            </Link>
+          </div>
+
+        </div>
+      </div>
+
     </div>
   )
 }
