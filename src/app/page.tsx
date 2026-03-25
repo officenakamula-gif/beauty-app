@@ -127,7 +127,12 @@ export default function HomePage() {
 
       {/* Header */}
       <header style={s.header}>
-        <div style={s.logo}>Salon de Beauty</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' as const }}>
+          <div style={s.logo}>Salon de Beauty</div>
+          <div style={{ fontSize: 11, color: '#737373', letterSpacing: '0.04em', whiteSpace: 'nowrap' as const }}>
+            〜サロンドビューティ〜　上質な美容体験を、あなたの街で
+          </div>
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {user ? (
             <>

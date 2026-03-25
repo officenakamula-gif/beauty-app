@@ -27,6 +27,8 @@ export const GENRE_GROUPS: GenreGroup[] = [
       'ヘアカラー専門',
       'パーマ専門',
       'スカルプケア',
+      'ミセス',
+      'メンズ',
     ],
   },
   {
@@ -52,6 +54,7 @@ export const GENRE_GROUPS: GenreGroup[] = [
       'セルフジェルネイル',
       'ブライダルまつげ',
       'メンズネイル',
+      'ミセスネイル',
     ],
   },
   {
