@@ -114,7 +114,7 @@ export default function AdminPage() {
           <p style="font-size:18px;font-weight:bold;color:#2E7D32;">✅ サロン掲載が承認されました！</p>
           <p>「${salonName}」の掲載申請が承認されました。</p>
           <p>ダッシュボードからサロン情報・メニュー・スタイリストを入力して、ユーザーへのアピールを始めましょう！</p>
-          <a href="https://beauty-app-mhst.vercel.app/dashboard"
+          <a href="${process.env.NEXT_PUBLIC_SITE_URL}/dashboard"
             style="display:block;background:linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB);color:white;text-align:center;padding:12px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:16px;">
             ダッシュボードを開く
           </a>

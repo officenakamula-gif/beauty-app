@@ -54,7 +54,7 @@ export default function HomePage() {
   const handleGoogleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: 'https://beauty-app-mhst.vercel.app/auth/callback' }
+      options: { redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback` }
     })
   }
 

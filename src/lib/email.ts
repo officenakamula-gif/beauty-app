@@ -96,7 +96,7 @@ export const emailTemplates = {
             <p style="margin:4px 0;"><strong>希望日時：</strong>${date}</p>
           </div>
           <p style="color:#9ca3af;font-size:12px;">※ 3日以内に承認またはキャンセルをしてください。</p>
-          <a href="https://beauty-app-mhst.vercel.app/dashboard"
+          <a href="${process.env.NEXT_PUBLIC_SITE_URL}/dashboard"
             style="display:block;background:linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB);color:white;text-align:center;padding:12px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:16px;">
             管理画面で確認する
           </a>
