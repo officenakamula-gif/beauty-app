@@ -65,6 +65,10 @@ export default function DashboardPage() {
     const [editingScheduleStylistId, setEditingScheduleStylistId] = useState<string | null>(null)
     const [scheduleForm, setScheduleForm] = useState<any[]>([])
     const [scheduleSaving, setScheduleSaving] = useState(false)
+    const [csvMonth, setCsvMonth] = useState(() => {
+        const d = new Date()
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    })
 
     useEffect(() => { init() }, [])
 
@@ -83,6 +87,9 @@ export default function DashboardPage() {
                 area: salonData.area || '', address: salonData.address || '',
                 nearest_station: salonData.nearest_station || '', description: salonData.description || '',
                 phone: salonData.phone || '', slot_interval: salonData.slot_interval || 30,
+                bank_name: salonData.bank_name || '', bank_branch: salonData.bank_branch || '',
+                bank_account_type: salonData.bank_account_type || 'savings',
+                bank_account_number: salonData.bank_account_number || '', bank_account_name: salonData.bank_account_name || '',
             })
             const { data: menuData } = await supabase.from('menus').select('*').eq('salon_id', salonData.id)
             setMenus(menuData || [])
@@ -343,6 +350,63 @@ export default function DashboardPage() {
         setPhotoUploading(false)
     }
 
+    const downloadCSV = async () => {
+        const [year, mon] = csvMonth.split('-').map(Number)
+        const from = new Date(year, mon - 1, 1).toISOString()
+        const to = new Date(year, mon, 1).toISOString()
+
+        const { data } = await supabase
+            .from('reservations')
+            .select('*, menus(name, price, duration), stylists(name)')
+            .eq('salon_id', salon.id)
+            .eq('status', 'completed')
+            .gte('completed_at', from)
+            .lt('completed_at', to)
+            .order('completed_at', { ascending: true })
+
+        if (!data || data.length === 0) { alert('該当月の売上データがありません'); return }
+
+        const fee = 0.05
+        const transferFee = 330
+        const totalSales = data.reduce((sum: number, r: any) => sum + (r.menus?.price || 0), 0)
+        const totalFee = Math.floor(totalSales * fee)
+        const payout = totalSales - totalFee - transferFee
+
+        const header = ['来店日', 'メニュー', 'スタイリスト', '金額（税込）', '手数料（5%）', '振込対象額']
+        const rows = data.map((r: any) => {
+            const price = r.menus?.price || 0
+            const f = Math.floor(price * fee)
+            return [
+                new Date(r.completed_at).toLocaleDateString('ja-JP'),
+                r.menus?.name || '',
+                r.stylists?.name || '指名なし',
+                price,
+                f,
+                price - f,
+            ]
+        })
+
+        const summary = [
+            [],
+            ['集計', '', '', totalSales, totalFee, totalSales - totalFee],
+            ['振込手数料', '', '', '', '', -transferFee],
+            ['振込予定額', '', '', '', '', payout],
+        ]
+
+        const csvContent = [header, ...rows, ...summary]
+            .map(row => row.map((cell: any) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+            .join('\n')
+
+        const bom = '\uFEFF'
+        const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `売上明細_${salon.name}_${csvMonth}.csv`
+        a.click()
+        URL.revokeObjectURL(url)
+    }
+
     const handleWithdraw = async () => {
         if (!confirm('退会しますか？\n\nサロン情報・予約データは保持されますが、ログインできなくなります。\nこの操作は取り消せません。')) return
         if (!confirm('本当に退会しますか？')) return
@@ -504,6 +568,33 @@ export default function DashboardPage() {
                                     <option value={30}>30分間隔</option>
                                     <option value={60}>60分間隔</option>
                                 </select>
+                            </div>
+                            <div style={{ marginBottom: 20, paddingTop: 20, borderTop: '1px solid #DBDBDB' }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 14 }}>振込口座情報</div>
+                                <div style={{ background: '#FFF8E1', border: '1px solid #FFE082', borderRadius: 10, padding: '12px 14px', marginBottom: 14, fontSize: 12, color: '#7A5800', lineHeight: 2.0 }}>
+                                    事前決済を利用する場合に必要です。<br />
+                                    売上から手数料5%を引いた金額が振り込まれます。<br />
+                                    <span style={{ fontWeight: 700 }}>月末締め・翌月末振込</span>（土日祝の場合は営業日前倒し）<br />
+                                    振込手数料：別途330円（税込）
+                                </div>
+                                <div style={{ marginBottom: 10 }}>
+                                    <input value={salonForm.bank_name} onChange={e => setSalonForm({ ...salonForm, bank_name: e.target.value })} placeholder="銀行名（例：三菱UFJ銀行）" style={inputStyle} />
+                                </div>
+                                <div style={{ marginBottom: 10 }}>
+                                    <input value={salonForm.bank_branch} onChange={e => setSalonForm({ ...salonForm, bank_branch: e.target.value })} placeholder="支店名（例：渋谷支店）" style={inputStyle} />
+                                </div>
+                                <div style={{ marginBottom: 10 }}>
+                                    <select value={salonForm.bank_account_type} onChange={e => setSalonForm({ ...salonForm, bank_account_type: e.target.value })} style={{ ...inputStyle }}>
+                                        <option value="savings">普通</option>
+                                        <option value="checking">当座</option>
+                                    </select>
+                                </div>
+                                <div style={{ marginBottom: 10 }}>
+                                    <input value={salonForm.bank_account_number} onChange={e => setSalonForm({ ...salonForm, bank_account_number: e.target.value })} placeholder="口座番号（例：1234567）" style={inputStyle} />
+                                </div>
+                                <div style={{ marginBottom: 10 }}>
+                                    <input value={salonForm.bank_account_name} onChange={e => setSalonForm({ ...salonForm, bank_account_name: e.target.value })} placeholder="口座名義（カタカナ）" style={inputStyle} />
+                                </div>
                             </div>
                             <button onClick={saveSalon} disabled={saving}
                                 style={{ width: '100%', background: grad, color: 'white', border: 'none', padding: 13, borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: saving ? 0.6 : 1 }}>
@@ -690,7 +781,21 @@ export default function DashboardPage() {
                 {/* RESERVATIONS TAB */}
                 {tab === 'reservations' && (
                     <div style={card}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>予約一覧（{reservations.length}件）</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em' }}>予約一覧（{reservations.length}件）</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <input
+                                        type="month"
+                                        value={csvMonth}
+                                        onChange={e => setCsvMonth(e.target.value)}
+                                        style={{ border: '1.5px solid #DBDBDB', borderRadius: 8, padding: '5px 10px', fontSize: 12, fontFamily: 'inherit', outline: 'none', color: '#111', background: '#FAFAFA' }}
+                                    />
+                                    <button onClick={downloadCSV}
+                                        style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #DBDBDB', background: '#FAFAFA', color: '#262626', padding: '5px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' as const }}>
+                                        売上明細CSV
+                                    </button>
+                                </div>
+                            </div>
                         {reservations.length === 0 ? <div style={{ textAlign: 'center', color: '#737373', padding: '20px 0', fontSize: 13 }}>予約がまだありません</div>
                             : reservations.map(res => (
 

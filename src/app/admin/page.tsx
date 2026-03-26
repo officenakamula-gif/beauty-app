@@ -16,7 +16,7 @@ export default function AdminPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'stats' | 'salons' | 'users' | 'notify'>('stats')
+  const [tab, setTab] = useState<'stats' | 'salons' | 'users' | 'notify' | 'payouts'>('stats')
 
   // 統計
   const [stats, setStats] = useState({ salons: 0, users: 0, reservations: 0, pendingRes: 0, pendingSalons: 0 })
@@ -38,6 +38,14 @@ export default function AdminPage() {
     body: '',
   })
   const [notifySending, setNotifySending] = useState(false)
+
+  // 振込管理
+  const [payoutData, setPayoutData] = useState<any[]>([])
+  const [payoutMonth, setPayoutMonth] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [payoutLoading, setPayoutLoading] = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
 
   useEffect(() => { init() }, [])
@@ -146,6 +154,62 @@ export default function AdminPage() {
     alert('却下しました。サロンオーナーに通知メールを送信しました。')
   }
 
+  const fetchPayouts = async (month: string) => {
+    setPayoutLoading(true)
+    const [year, mon] = month.split('-').map(Number)
+    const from = new Date(year, mon - 1, 1).toISOString()
+    const to = new Date(year, mon, 1).toISOString()
+
+    // 対象月にcompletedになった予約を取得
+    const { data: resData } = await supabase
+      .from('reservations')
+      .select('*, salons(id, name, phone, bank_name, bank_branch, bank_account_type, bank_account_number, bank_account_name), menus(price)')
+      .eq('status', 'completed')
+      .gte('completed_at', from)
+      .lt('completed_at', to)
+
+    if (!resData) { setPayoutData([]); setPayoutLoading(false); return }
+
+    // サロンごとに集計
+    const salonMap: Record<string, any> = {}
+    for (const res of resData) {
+      const salonId = res.salon_id
+      if (!salonMap[salonId]) {
+        salonMap[salonId] = {
+          salon: res.salons,
+          reservations: [],
+          totalAmount: 0,
+          unpaidAmount: 0,
+        }
+      }
+      const price = res.menus?.price || 0
+      salonMap[salonId].reservations.push(res)
+      salonMap[salonId].totalAmount += price
+      if (!res.is_paid_out) salonMap[salonId].unpaidAmount += price
+    }
+    setPayoutData(Object.values(salonMap))
+    setPayoutLoading(false)
+  }
+
+  const markAsPaidOut = async (salonId: string, month: string) => {
+    if (!confirm('この月の振込を完了済みにしますか？')) return
+    const [year, mon] = month.split('-').map(Number)
+    const from = new Date(year, mon - 1, 1).toISOString()
+    const to = new Date(year, mon, 1).toISOString()
+
+    await supabase
+      .from('reservations')
+      .update({ is_paid_out: true })
+      .eq('salon_id', salonId)
+      .eq('status', 'completed')
+      .gte('completed_at', from)
+      .lt('completed_at', to)
+      .eq('is_paid_out', false)
+
+    await fetchPayouts(month)
+    alert('振込済みにしました')
+  }
+
   const sendNotification = async () => {
     if (!notifyForm.title || !notifyForm.body) { alert('タイトルと本文を入力してください'); return }
     setNotifySending(true)
@@ -222,6 +286,7 @@ export default function AdminPage() {
     { key: 'stats', label: '統計' },
     { key: 'salons', label: `サロン（${stats.salons}）` },
     { key: 'users', label: `ユーザー（${stats.users}）` },
+    { key: 'payouts', label: '振込管理' },
     { key: 'notify', label: 'お知らせ送信' },
   ]
 
@@ -442,6 +507,93 @@ export default function AdminPage() {
         )}
 
         {/* ── お知らせ送信タブ ── */}
+
+        {/* ── 振込管理タブ ── */}
+        {tab === 'payouts' && (
+          <div>
+            {/* 月選択 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <input
+                type="month"
+                value={payoutMonth}
+                onChange={e => { setPayoutMonth(e.target.value); fetchPayouts(e.target.value) }}
+                style={{ border: '1.5px solid #DBDBDB', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#111', background: '#FAFAFA' }}
+              />
+              <button onClick={() => fetchPayouts(payoutMonth)}
+                style={{ background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', color: 'white', border: 'none', padding: '8px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                表示
+              </button>
+            </div>
+
+            {payoutLoading ? (
+              <div style={{ textAlign: 'center', color: '#737373', padding: '40px 0', fontSize: 13 }}>読み込み中...</div>
+            ) : payoutData.length === 0 ? (
+              <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: 40, textAlign: 'center', color: '#737373', fontSize: 13 }}>
+                {payoutMonth} の完了予約はありません
+              </div>
+            ) : payoutData.map((item: any) => {
+              const fee = Math.floor(item.unpaidAmount * 0.05)
+              const payout = item.unpaidAmount - fee
+              const allPaid = item.unpaidAmount === 0
+              return (
+                <div key={item.salon?.id} style={{ background: 'white', borderRadius: 16, border: `1px solid ${allPaid ? '#DBDBDB' : '#E1306C33'}`, padding: 24, marginBottom: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontSize: 16, fontWeight: 700, color: '#111' }}>{item.salon?.name}</span>
+                        {allPaid ? (
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 10px', borderRadius: 100, background: '#E8F5E9', color: '#2E7D32' }}>振込済み</span>
+                        ) : (
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 10px', borderRadius: 100, background: '#FFF8E1', color: '#F57F17' }}>振込待ち</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#737373' }}>完了件数：{item.reservations.length}件　月間売上：¥{item.totalAmount.toLocaleString()}</div>
+                    </div>
+                    {!allPaid && (
+                      <button onClick={() => markAsPaidOut(item.salon?.id, payoutMonth)}
+                        style={{ background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', color: 'white', border: 'none', padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                        振込済みにする
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 振込計算 */}
+                  {!allPaid && (
+                    <div style={{ background: '#FAFAFA', borderRadius: 10, padding: '14px 16px', marginBottom: 16, fontSize: 13 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #F2F2F2' }}>
+                        <span style={{ color: '#737373' }}>未振込売上</span>
+                        <span style={{ fontWeight: 700, color: '#111' }}>¥{item.unpaidAmount.toLocaleString()}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #F2F2F2' }}>
+                        <span style={{ color: '#737373' }}>手数料（5%）</span>
+                        <span style={{ color: '#C62828' }}>-¥{fee.toLocaleString()}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 4px' }}>
+                        <span style={{ fontWeight: 700, color: '#111' }}>振込額</span>
+                        <span style={{ fontSize: 18, fontWeight: 700, background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>¥{payout.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 口座情報 */}
+                  <div style={{ fontSize: 12, color: '#737373', lineHeight: 1.9 }}>
+                    {item.salon?.bank_name ? (
+                      <>
+                        <span style={{ fontWeight: 700, color: '#262626' }}>振込先：</span>
+                        {item.salon.bank_name}　{item.salon.bank_branch}　
+                        {item.salon.bank_account_type === 'savings' ? '普通' : item.salon.bank_account_type === 'checking' ? '当座' : item.salon.bank_account_type}　
+                        {item.salon.bank_account_number}　{item.salon.bank_account_name}
+                      </>
+                    ) : (
+                      <span style={{ color: '#BDBDBD' }}>口座情報未登録</span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
         {tab === 'notify' && (
           <div>
             <div style={card}>
