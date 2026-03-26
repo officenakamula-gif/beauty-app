@@ -32,11 +32,12 @@ export async function GET(request: Request) {
         return NextResponse.json({ message: 'No confirmed reservations', updated: 0 })
     }
 
-    // 予約終了時刻（reserved_at + duration分）が現在時刻を過ぎているものを抽出
+    // 予約終了時刻（reserved_at + duration分 + 1時間バッファ）が現在時刻を過ぎているものを抽出
+    const BUFFER_MS = 60 * 60 * 1000 // 1時間バッファ（施術延長・写真確認の余裕）
     const completedIds = reservations
         .filter((r: any) => {
             const duration = r.menus?.duration ?? 60 // durationが不明なら60分をデフォルト
-            const endTime = new Date(r.reserved_at).getTime() + duration * 60 * 1000
+            const endTime = new Date(r.reserved_at).getTime() + duration * 60 * 1000 + BUFFER_MS
             return endTime < new Date(now).getTime()
         })
         .map((r: any) => r.id)

@@ -21,7 +21,7 @@ export default function MyPage() {
     setUser(user)
     const { data } = await supabase
       .from('reservations')
-      .select('*, salons(name, area, owner_id), menus(name, price), stylists(name)')
+      .select('*, salons(name, area, phone, owner_id), menus(name, price), stylists(name)')
       .eq('user_id', user.id)
       .order('reserved_at', { ascending: false })
     setReservations(data || [])
@@ -29,13 +29,19 @@ export default function MyPage() {
   }
 
   const cancelReservation = async (id: string) => {
-    if (!confirm('予約をキャンセルしますか？')) return
-    await supabase.from('reservations').update({ status: 'cancelled' }).eq('id', id)
-    setReservations(reservations.map(r => r.id === id ? { ...r, status: 'cancelled' } : r))
-
-    // メール送信
     const res = reservations.find(r => r.id === id)
     if (!res) return
+    // pendingのみキャンセル可
+    if (res.status !== 'pending') return
+    if (!confirm('予約をキャンセルしますか？\nキャンセル後は取り消せません。')) return
+
+    await supabase.from('reservations').update({
+      status: 'cancelled',
+      cancelled_by: 'user', // 決済実装時の返金判定用フラグ
+    }).eq('id', id)
+    setReservations(reservations.map(r => r.id === id ? { ...r, status: 'cancelled', cancelled_by: 'user' } : r))
+
+    // メール送信
     const dateStr = new Date(res.reserved_at).toLocaleString('ja-JP')
     const menuName = res.menus?.name || ''
     const salonName = res.salons?.name || ''
@@ -116,11 +122,23 @@ export default function MyPage() {
         </div>
       )}
       {!past && res.status === 'confirmed' && (
-        <div style={{ marginTop: 12, background: '#E8F5E9', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#2E7D32', fontWeight: 500 }}>
-          予約が確定しました。ご来店をお楽しみに。
-        </div>
+        <>
+          <div style={{ marginTop: 12, background: '#E8F5E9', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#2E7D32', fontWeight: 500, lineHeight: 1.7 }}>
+            予約が確定しました。ご来店をお楽しみに。
+          </div>
+          {/* confirmed後はキャンセル不可・サロンへ連絡を促す */}
+          <div style={{ marginTop: 8, background: '#FFF8E1', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#8A6914', lineHeight: 1.7 }}>
+            予約確定後のキャンセルはサロンへ直接ご連絡ください。
+            {res.salons?.phone && (
+              <div style={{ marginTop: 4, fontWeight: 700 }}>
+                📞 <a href={`tel:${res.salons.phone}`} style={{ color: '#8A6914' }}>{res.salons.phone}</a>
+              </div>
+            )}
+          </div>
+        </>
       )}
-      {!past && (
+      {/* pendingのみキャンセルボタン表示 */}
+      {!past && res.status === 'pending' && (
         <button onClick={() => cancelReservation(res.id)}
           style={{ marginTop: 10, fontSize: 12, color: '#737373', border: '1.5px solid #DBDBDB', background: 'none', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
           予約をキャンセルする

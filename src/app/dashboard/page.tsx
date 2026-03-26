@@ -330,8 +330,11 @@ export default function DashboardPage() {
     }
 
     const updateReservationStatus = async (id: string, status: string) => {
-        await supabase.from('reservations').update({ status }).eq('id', id)
-        setReservations(reservations.map(r => r.id === id ? { ...r, status } : r))
+        const updates: any = { status }
+        // キャンセル時はcancelled_byをsalonとして記録（決済実装時の返金判定用）
+        if (status === 'cancelled') updates.cancelled_by = 'salon'
+        await supabase.from('reservations').update(updates).eq('id', id)
+        setReservations(reservations.map(r => r.id === id ? { ...r, ...updates } : r))
     }
 
     const blockUser = async (userId: string, salonId: string) => {
