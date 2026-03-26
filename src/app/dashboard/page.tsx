@@ -60,6 +60,12 @@ export default function DashboardPage() {
         address: '', nearest_station: '', description: '', phone: '', slot_interval: 30,
         bank_name: '', bank_branch: '', bank_account_type: 'savings',
         bank_account_number: '', bank_account_name: '',
+        parking: false,
+        payment_methods: [] as string[],
+        payment_other: '',
+        regular_holiday: [] as string[],
+        business_hours_start: '10:00',
+        business_hours_end: '20:00',
     })
     const [menuForm, setMenuForm] = useState({ name: '', price: '', duration: '', description: '', is_first_visit: false })
     const [editingMenuId, setEditingMenuId] = useState<string | null>(null)
@@ -95,6 +101,12 @@ export default function DashboardPage() {
                 bank_name: salonData.bank_name || '', bank_branch: salonData.bank_branch || '',
                 bank_account_type: salonData.bank_account_type || 'savings',
                 bank_account_number: salonData.bank_account_number || '', bank_account_name: salonData.bank_account_name || '',
+                parking: !!salonData.parking,
+                payment_methods: salonData.payment_methods || [],
+                payment_other: salonData.payment_other || '',
+                regular_holiday: salonData.regular_holiday || [],
+                business_hours_start: salonData.business_hours_start || '10:00',
+                business_hours_end: salonData.business_hours_end || '20:00',
             })
             const { data: menuData } = await supabase.from('menus').select('*').eq('salon_id', salonData.id)
             setMenus(menuData || [])
@@ -200,6 +212,12 @@ export default function DashboardPage() {
             name: salonForm.name, genre: salonForm.genre, sub_genre: salonForm.sub_genre || null, area: salonForm.area,
             address: salonForm.address, nearest_station: salonForm.nearest_station,
             description: salonForm.description, phone: salonForm.phone, slot_interval: salonForm.slot_interval,
+            parking: salonForm.parking,
+            payment_methods: salonForm.payment_methods,
+            payment_other: salonForm.payment_other || null,
+            regular_holiday: salonForm.regular_holiday,
+            business_hours_start: salonForm.business_hours_start || null,
+            business_hours_end: salonForm.business_hours_end || null,
         }
         if (salon) {
             const { error } = await supabase.from('salons').update(payload).eq('id', salon.id)
@@ -636,6 +654,78 @@ export default function DashboardPage() {
                                     <option value={60}>60分間隔</option>
                                 </select>
                             </div>
+                            {/* ── 営業情報セクション ── */}
+                            <div style={{ marginBottom: 20, paddingTop: 20, borderTop: '1px solid #DBDBDB' }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 14 }}>営業情報</div>
+
+                                {/* 営業時間 */}
+                                <div style={{ marginBottom: 14 }}>
+                                    <label style={labelStyle}>営業時間</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <input type="time" value={salonForm.business_hours_start} onChange={e => setSalonForm({ ...salonForm, business_hours_start: e.target.value })}
+                                            style={{ ...inputStyle, width: 'auto', flex: 1 }} />
+                                        <span style={{ fontSize: 12, color: '#737373', flexShrink: 0 }}>〜</span>
+                                        <input type="time" value={salonForm.business_hours_end} onChange={e => setSalonForm({ ...salonForm, business_hours_end: e.target.value })}
+                                            style={{ ...inputStyle, width: 'auto', flex: 1 }} />
+                                    </div>
+                                </div>
+
+                                {/* 定休日 */}
+                                <div style={{ marginBottom: 14 }}>
+                                    <label style={labelStyle}>定休日（複数選択可）</label>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                        {['月', '火', '水', '木', '金', '土', '日', '祝'].map(day => {
+                                            const selected = salonForm.regular_holiday.includes(day)
+                                            return (
+                                                <button key={day} type="button"
+                                                    onClick={() => setSalonForm({ ...salonForm, regular_holiday: selected ? salonForm.regular_holiday.filter(d => d !== day) : [...salonForm.regular_holiday, day] })}
+                                                    style={{ padding: '6px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: selected ? grad : '#F2F2F2', color: selected ? 'white' : '#737373' }}>
+                                                    {day}
+                                                </button>
+                                            )
+                                        })}
+                                        <button key="不定休" type="button"
+                                            onClick={() => setSalonForm({ ...salonForm, regular_holiday: salonForm.regular_holiday.includes('不定休') ? salonForm.regular_holiday.filter(d => d !== '不定休') : [...salonForm.regular_holiday, '不定休'] })}
+                                            style={{ padding: '6px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: salonForm.regular_holiday.includes('不定休') ? grad : '#F2F2F2', color: salonForm.regular_holiday.includes('不定休') ? 'white' : '#737373' }}>
+                                            不定休
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* 駐車場 */}
+                                <div style={{ marginBottom: 14 }}>
+                                    <label style={labelStyle}>駐車場</label>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        {[{ val: true, label: 'あり' }, { val: false, label: 'なし' }].map(opt => (
+                                            <button key={String(opt.val)} type="button"
+                                                onClick={() => setSalonForm({ ...salonForm, parking: opt.val })}
+                                                style={{ flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: salonForm.parking === opt.val ? grad : '#F2F2F2', color: salonForm.parking === opt.val ? 'white' : '#737373' }}>
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* 支払い方法 */}
+                                <div style={{ marginBottom: 14 }}>
+                                    <label style={labelStyle}>支払い方法（複数選択可）</label>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                                        {['現金', 'Visa', 'Mastercard', 'JCB', 'AmEx', '交通系IC', 'PayPay', 'LINE Pay', 'd払い', 'au PAY', 'メルペイ', 'iD', 'QUICPay'].map(method => {
+                                            const selected = salonForm.payment_methods.includes(method)
+                                            return (
+                                                <button key={method} type="button"
+                                                    onClick={() => setSalonForm({ ...salonForm, payment_methods: selected ? salonForm.payment_methods.filter(m => m !== method) : [...salonForm.payment_methods, method] })}
+                                                    style={{ padding: '6px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: selected ? grad : '#F2F2F2', color: selected ? 'white' : '#737373' }}>
+                                                    {method}
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                    <input value={salonForm.payment_other} onChange={e => setSalonForm({ ...salonForm, payment_other: e.target.value })}
+                                        placeholder="その他（例：銀聯カード）" style={inputStyle} />
+                                </div>
+                            </div>
+
                             <div style={{ marginBottom: 20, paddingTop: 20, borderTop: '1px solid #DBDBDB' }}>
                                 <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 14 }}>振込口座情報</div>
                                 <div style={{ background: '#FFF8E1', border: '1px solid #FFE082', borderRadius: 10, padding: '12px 14px', marginBottom: 14, fontSize: 12, color: '#7A5800', lineHeight: 2.0 }}>

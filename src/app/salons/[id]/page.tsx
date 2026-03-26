@@ -563,7 +563,7 @@ export default function SalonDetailPage() {
                   </div>
                 )}
 
-                {/* アクセス・基本情報（HPBのサロン情報欄） */}
+                {/* アクセス・基本情報 */}
                 <div style={{ marginBottom: 24 }}>
                   <div style={sectionTitle}>アクセス・サロン情報</div>
                   <table style={{ width: '100%', borderCollapse: 'collapse' as const }}>
@@ -572,13 +572,54 @@ export default function SalonDetailPage() {
                       { label: '住所', value: `${salon.area} ${salon.address}` },
                       salon.nearest_station ? { label: '最寄り駅', value: `${salon.nearest_station}駅近く` } : null,
                       salon.phone ? { label: '電話番号', value: salon.phone } : null,
+                      (salon.business_hours_start && salon.business_hours_end) ? { label: '営業時間', value: `${salon.business_hours_start} 〜 ${salon.business_hours_end}` } : null,
+                      (salon.regular_holiday && salon.regular_holiday.length > 0) ? { label: '定休日', value: salon.regular_holiday.join('・') } : null,
+                      { label: '駐車場', value: salon.parking ? 'あり' : 'なし' },
                     ].filter(Boolean).map((row: any) => (
                       <tr key={row.label} style={{ borderBottom: '1px solid #F2F2F2' }}>
                         <td style={{ padding: '9px 0', fontSize: 12, fontWeight: 700, color: '#737373', width: 90, verticalAlign: 'top' as const }}>{row.label}</td>
                         <td style={{ padding: '9px 0', fontSize: 13, color: '#111', lineHeight: 1.7 }}>{row.value}</td>
                       </tr>
                     ))}
+                    {/* 支払い方法 */}
+                    {salon.payment_methods && salon.payment_methods.length > 0 && (
+                      <tr style={{ borderBottom: '1px solid #F2F2F2' }}>
+                        <td style={{ padding: '9px 0', fontSize: 12, fontWeight: 700, color: '#737373', width: 90, verticalAlign: 'top' as const }}>支払い方法</td>
+                        <td style={{ padding: '9px 0' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                            {salon.payment_methods.map((m: string) => (
+                              <span key={m} style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 100, background: '#F5F0FF', color: '#833AB4', border: '1px solid #E1D5F5' }}>{m}</span>
+                            ))}
+                            {salon.payment_other && (
+                              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 100, background: '#F5F5F5', color: '#737373', border: '1px solid #DBDBDB' }}>{salon.payment_other}</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                   </table>
+
+                  {/* Googleマップ */}
+                  {salon.address && (
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', marginBottom: 8 }}>地図</div>
+                      <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid #DBDBDB' }}>
+                        <iframe
+                          src={`https://maps.google.com/maps?q=${encodeURIComponent((salon.area || '') + ' ' + (salon.address || ''))}&output=embed&hl=ja`}
+                          width="100%"
+                          height="240"
+                          style={{ border: 'none', display: 'block' }}
+                          loading="lazy"
+                          title="アクセスマップ"
+                        />
+                      </div>
+                      <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((salon.area || '') + ' ' + (salon.address || ''))}`}
+                        target="_blank" rel="noopener noreferrer"
+                        style={{ display: 'inline-block', marginTop: 6, fontSize: 11, color: '#5851DB', textDecoration: 'none', fontWeight: 700 }}>
+                        Google マップで開く →
+                      </a>
+                    </div>
+                  )}
                 </div>
 
               </div>
