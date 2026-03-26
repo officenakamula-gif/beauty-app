@@ -42,7 +42,7 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [uploading, setUploading] = useState(false)
-    const [tab, setTab] = useState<'salon' | 'menus' | 'stylists' | 'photos' | 'reservations' | 'users' | 'messages'>('salon')
+    const [tab, setTab] = useState<'stats' | 'salon' | 'menus' | 'stylists' | 'photos' | 'reservations' | 'users' | 'messages'>('stats')
     const [salonUsers, setSalonUsers] = useState<any[]>([])
     const [blocks, setBlocks] = useState<any[]>([])
     const [withdrawing, setWithdrawing] = useState(false)
@@ -471,6 +471,7 @@ export default function DashboardPage() {
     }
 
     const tabList = [
+        { key: 'stats', label: '統計' },
         { key: 'salon', label: 'サロン情報' },
         { key: 'menus', label: 'メニュー' },
         { key: 'stylists', label: 'スタイリスト' },
@@ -812,6 +813,153 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 )}
+
+                {/* STATS TAB */}
+                {tab === 'stats' && (() => {
+                    // 過去6ヶ月のデータ集計
+                    const now = new Date()
+                    const months = Array.from({ length: 6 }, (_, i) => {
+                        const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
+                        return { year: d.getFullYear(), month: d.getMonth() + 1, label: `${d.getMonth() + 1}月` }
+                    })
+
+                    const completedRes = reservations.filter((r: any) => r.status === 'completed' && r.completed_at)
+
+                    const monthlyData = months.map(m => {
+                        const filtered = completedRes.filter((r: any) => {
+                            const d = new Date(r.completed_at)
+                            return d.getFullYear() === m.year && d.getMonth() + 1 === m.month
+                        })
+                        return {
+                            label: m.label,
+                            count: filtered.length,
+                            sales: filtered.reduce((sum: number, r: any) => sum + (r.menus?.price || 0), 0),
+                        }
+                    })
+
+                    const maxSales = Math.max(...monthlyData.map(d => d.sales), 1)
+                    const maxCount = Math.max(...monthlyData.map(d => d.count), 1)
+                    const totalSales = completedRes.reduce((sum: number, r: any) => sum + (r.menus?.price || 0), 0)
+                    const totalCount = completedRes.length
+                    const thisMonth = monthlyData[5]
+                    const lastMonth = monthlyData[4]
+                    const salesDiff = thisMonth.sales - lastMonth.sales
+                    const countDiff = thisMonth.count - lastMonth.count
+
+                    const BAR_W = 32
+                    const CHART_H = 120
+                    const GAP = 12
+                    const CHART_W = (BAR_W + GAP) * 6 - GAP
+
+                    return (
+                        <div>
+                            {/* サマリーカード */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
+                                {[
+                                    { label: '今月の売上', value: `¥${thisMonth.sales.toLocaleString()}`, diff: salesDiff, unit: '円' },
+                                    { label: '今月の来店数', value: `${thisMonth.count}件`, diff: countDiff, unit: '件' },
+                                    { label: '累計売上', value: `¥${totalSales.toLocaleString()}`, sub: `累計${totalCount}件` },
+                                ].map(s => (
+                                    <div key={s.label} style={card}>
+                                        <div style={{ fontSize: 11, color: '#737373', marginBottom: 6 }}>{s.label}</div>
+                                        <div style={{ fontSize: 20, fontWeight: 700, background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{s.value}</div>
+                                        {s.diff !== undefined && (
+                                            <div style={{ fontSize: 11, marginTop: 4, color: s.diff >= 0 ? '#2E7D32' : '#C62828', fontWeight: 700 }}>
+                                                {s.diff >= 0 ? '↑' : '↓'} 先月比 {Math.abs(s.diff).toLocaleString()}{s.unit}
+                                            </div>
+                                        )}
+                                        {s.sub && <div style={{ fontSize: 11, color: '#737373', marginTop: 4 }}>{s.sub}</div>}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* 売上グラフ */}
+                            <div style={card}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>月別売上（過去6ヶ月）</div>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <svg width={CHART_W} height={CHART_H + 40} style={{ display: 'block', minWidth: CHART_W }}>
+                                        {monthlyData.map((d, i) => {
+                                            const barH = maxSales > 0 ? Math.max((d.sales / maxSales) * CHART_H, d.sales > 0 ? 4 : 0) : 0
+                                            const x = i * (BAR_W + GAP)
+                                            const y = CHART_H - barH
+                                            return (
+                                                <g key={i}>
+                                                    <defs>
+                                                        <linearGradient id={`g${i}`} x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="0%" stopColor="#F77737" />
+                                                            <stop offset="100%" stopColor="#833AB4" />
+                                                        </linearGradient>
+                                                    </defs>
+                                                    <rect x={x} y={y} width={BAR_W} height={barH} rx={4} fill={`url(#g${i})`} opacity={i === 5 ? 1 : 0.5} />
+                                                    <text x={x + BAR_W / 2} y={CHART_H + 16} textAnchor="middle" fontSize={10} fill="#737373">{d.label}</text>
+                                                    {d.sales > 0 && <text x={x + BAR_W / 2} y={y - 4} textAnchor="middle" fontSize={9} fill="#555">¥{(d.sales / 1000).toFixed(0)}k</text>}
+                                                </g>
+                                            )
+                                        })}
+                                    </svg>
+                                </div>
+                            </div>
+
+                            {/* 来店数グラフ */}
+                            <div style={card}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>月別来店数（過去6ヶ月）</div>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <svg width={CHART_W} height={CHART_H + 40} style={{ display: 'block', minWidth: CHART_W }}>
+                                        {monthlyData.map((d, i) => {
+                                            const barH = maxCount > 0 ? Math.max((d.count / maxCount) * CHART_H, d.count > 0 ? 4 : 0) : 0
+                                            const x = i * (BAR_W + GAP)
+                                            const y = CHART_H - barH
+                                            return (
+                                                <g key={i}>
+                                                    <defs>
+                                                        <linearGradient id={`gc${i}`} x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="0%" stopColor="#5851DB" />
+                                                            <stop offset="100%" stopColor="#E1306C" />
+                                                        </linearGradient>
+                                                    </defs>
+                                                    <rect x={x} y={y} width={BAR_W} height={barH} rx={4} fill={`url(#gc${i})`} opacity={i === 5 ? 1 : 0.5} />
+                                                    <text x={x + BAR_W / 2} y={CHART_H + 16} textAnchor="middle" fontSize={10} fill="#737373">{d.label}</text>
+                                                    {d.count > 0 && <text x={x + BAR_W / 2} y={y - 4} textAnchor="middle" fontSize={9} fill="#555">{d.count}件</text>}
+                                                </g>
+                                            )
+                                        })}
+                                    </svg>
+                                </div>
+                            </div>
+
+                            {/* メニュー別売上ランキング */}
+                            <div style={card}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>メニュー別売上ランキング</div>
+                                {(() => {
+                                    const menuMap: Record<string, { name: string, count: number, sales: number }> = {}
+                                    completedRes.forEach((r: any) => {
+                                        const name = r.menus?.name || '不明'
+                                        if (!menuMap[name]) menuMap[name] = { name, count: 0, sales: 0 }
+                                        menuMap[name].count++
+                                        menuMap[name].sales += r.menus?.price || 0
+                                    })
+                                    const ranked = Object.values(menuMap).sort((a, b) => b.sales - a.sales).slice(0, 5)
+                                    const maxMenuSales = Math.max(...ranked.map(r => r.sales), 1)
+                                    if (ranked.length === 0) return <div style={{ textAlign: 'center', color: '#737373', padding: '20px 0', fontSize: 13 }}>データがありません</div>
+                                    return ranked.map((m, i) => (
+                                        <div key={m.name} style={{ marginBottom: 12 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                <div style={{ fontSize: 12, fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <span style={{ width: 18, height: 18, borderRadius: '50%', background: i === 0 ? 'linear-gradient(45deg,#F77737,#E1306C)' : '#DBDBDB', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: i === 0 ? 'white' : '#737373', flexShrink: 0 }}>{i + 1}</span>
+                                                    {m.name}
+                                                </div>
+                                                <div style={{ fontSize: 12, color: '#737373', flexShrink: 0 }}>¥{m.sales.toLocaleString()} / {m.count}件</div>
+                                            </div>
+                                            <div style={{ height: 6, background: '#F2F2F2', borderRadius: 100, overflow: 'hidden' }}>
+                                                <div style={{ height: '100%', width: `${(m.sales / maxMenuSales) * 100}%`, background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4)', borderRadius: 100 }} />
+                                            </div>
+                                        </div>
+                                    ))
+                                })()}
+                            </div>
+                        </div>
+                    )
+                })()}
 
                 {/* RESERVATIONS TAB */}
                 {tab === 'reservations' && (
