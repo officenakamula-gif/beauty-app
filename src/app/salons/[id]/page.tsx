@@ -263,7 +263,7 @@ export default function SalonDetailPage() {
 
   const makeReservation = async () => {
     if (isBlocked) { alert('このサロンへの予約はできません。'); return }
-    if (!user) { router.push('/auth'); return }
+    if (!user) { router.push(`/auth?redirect=/salons/${id}`); return }
     setBookingLoading(true)
     const slotDate = new Date(`${selectedDate}T${selectedTime}:00+09:00`)
     const now = new Date()
@@ -361,7 +361,7 @@ export default function SalonDetailPage() {
               <button onClick={() => router.back()} style={{ fontSize: 12, border: '1px solid #DBDBDB', background: 'none', padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: '#262626' }}>戻る</button>
             </>
           ) : (
-            <button onClick={() => router.push('/auth')} style={{ background: grad, color: 'white', border: 'none', padding: '6px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>ログイン</button>
+            <button onClick={() => router.push(`/auth?redirect=/salons/${id}`)} style={{ background: grad, color: 'white', border: 'none', padding: '6px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>ログイン</button>
           )}
         </div>
       </header>
@@ -629,7 +629,7 @@ export default function SalonDetailPage() {
                 {!user && (
                   <div style={{ background: '#FFFDE7', border: '1px solid #FFF176', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: 13, color: '#F57F17' }}>予約にはログインが必要です</span>
-                    <button onClick={() => router.push('/auth')}
+                    <button onClick={() => router.push(`/auth?redirect=/salons/${id}`)}
                       style={{ background: '#FFA000', color: 'white', border: 'none', padding: '5px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
                       ログイン
                     </button>
@@ -920,7 +920,7 @@ export default function SalonDetailPage() {
             </button>
 
             {!user && (
-              <button onClick={() => router.push('/auth')}
+              <button onClick={() => router.push(`/auth?redirect=/salons/${id}`)}
                 style={{ width: '100%', background: 'none', border: '1px solid #DBDBDB', padding: '8px 0', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#737373' }}>
                 ログイン / 新規登録
               </button>

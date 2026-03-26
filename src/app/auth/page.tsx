@@ -2,11 +2,13 @@
 export const dynamic = 'force-dynamic'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 export default function AuthPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect') || '/'
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [role, setRole] = useState<'user' | 'salon'>('user')
 
@@ -75,7 +77,7 @@ export default function AuthPage() {
               display_name: displayName || null,
             }, { onConflict: 'id' })
             alert('確認メールを送信しました。\nメール内のリンクをクリックして登録を完了してください。')
-            router.push('/')
+            router.push(redirectTo)
           } else {
             // サロン → 承認待ちで仮登録
             await supabase.from('profiles').upsert({
@@ -104,7 +106,7 @@ export default function AuthPage() {
               })
             }
             alert('確認メールを送信しました。\nメール内のリンクをクリックして登録を完了してください。\n\n※認証後はダッシュボードからサロン情報を入力しておいてください。\n管理者審査後に掲載が開始されます。')
-            router.push('/')
+            router.push('/dashboard')
           }
         }
       } else {
@@ -113,7 +115,7 @@ export default function AuthPage() {
         const { data: prof } = await supabase.from('profiles').select('role').eq('id', data.user.id).single()
         if (prof?.role === 'admin') router.push('/admin')
         else if (prof?.role === 'salon') router.push('/dashboard')
-        else router.push('/')
+        else router.push(redirectTo)
       }
     } catch (err: any) {
       alert(err.message)
