@@ -56,7 +56,9 @@ export default function DashboardPage() {
 
     const [salonForm, setSalonForm] = useState({
         name: '', genre: 'ヘアサロン', sub_genre: '', prefecture: '北海道', area: '札幌市中央区',
-        address: '', nearest_station: '', description: '', phone: '', slot_interval: 30
+        address: '', nearest_station: '', description: '', phone: '', slot_interval: 30,
+        bank_name: '', bank_branch: '', bank_account_type: 'savings',
+        bank_account_number: '', bank_account_name: '',
     })
     const [menuForm, setMenuForm] = useState({ name: '', price: '', duration: '', description: '' })
     const [stylistForm, setStylistForm] = useState({ name: '', role: '', experience_years: '', description: '', instagram: '' })
@@ -368,32 +370,61 @@ export default function DashboardPage() {
 
         const fee = 0.05
         const transferFee = 330
-        const totalSales = data.reduce((sum: number, r: any) => sum + (r.menus?.price || 0), 0)
-        const totalFee = Math.floor(totalSales * fee)
-        const payout = totalSales - totalFee - transferFee
 
-        const header = ['来店日', 'メニュー', 'スタイリスト', '金額（税込）', '手数料（5%）', '振込対象額']
+        // 発行日・対象期間
+        const issueDate = new Date().toLocaleDateString('ja-JP')
+        const periodStart = new Date(year, mon - 1, 1).toLocaleDateString('ja-JP')
+        const periodEnd = new Date(year, mon, 0).toLocaleDateString('ja-JP')
+        const period = `${periodStart} 〜 ${periodEnd}`
+
+        // 支払期限（翌月末日）
+        const payDueDate = new Date(year, mon + 1, 0).toLocaleDateString('ja-JP')
+
+        // 発行者情報ブロック
+        const issuerBlock = [
+            ['発行者', 'Salon de Beauty'],
+            ['連絡先', 'officenakamula@gmail.com'],
+            ['発行日', issueDate],
+            ['対象期間', period],
+            ['サロン名', salon.name || ''],
+            [],
+        ]
+
+        // 明細ヘッダー
+        const header = ['来店日', 'メニュー', 'スタイリスト', '金額（税込）']
+
+        // 明細行（手数料・振込対象は集計欄のみ）
         const rows = data.map((r: any) => {
             const price = r.menus?.price || 0
-            const f = Math.floor(price * fee)
             return [
                 new Date(r.completed_at).toLocaleDateString('ja-JP'),
                 r.menus?.name || '',
                 r.stylists?.name || '指名なし',
                 price,
-                f,
-                price - f,
             ]
         })
 
+        // 集計ブロック
+        const totalSales = data.reduce((sum: number, r: any) => sum + (r.menus?.price || 0), 0)
+        const totalFee = Math.floor(totalSales * fee)
+        const payout = totalSales - totalFee - transferFee
+
         const summary = [
             [],
-            ['集計', '', '', totalSales, totalFee, totalSales - totalFee],
-            ['振込手数料', '', '', '', '', -transferFee],
-            ['振込予定額', '', '', '', '', payout],
+            ['売上合計（税込）', '', '', totalSales],
+            ['手数料5%（税込）', '', '', -totalFee],
+            ['振込手数料（税込）', '', '', -transferFee],
+            ['振込予定額', '', '', payout],
+            [],
+            ['支払期限', payDueDate, '', ''],
         ]
 
-        const csvContent = [header, ...rows, ...summary]
+        const csvContent = [
+            ...issuerBlock,
+            header,
+            ...rows,
+            ...summary,
+        ]
             .map(row => row.map((cell: any) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
             .join('\n')
 
@@ -784,12 +815,20 @@ export default function DashboardPage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>
                                 <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em' }}>予約一覧（{reservations.length}件）</div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <input
-                                        type="month"
+                                    <select
                                         value={csvMonth}
                                         onChange={e => setCsvMonth(e.target.value)}
-                                        style={{ border: '1.5px solid #DBDBDB', borderRadius: 8, padding: '5px 10px', fontSize: 12, fontFamily: 'inherit', outline: 'none', color: '#111', background: '#FAFAFA' }}
-                                    />
+                                        style={{ border: '1.5px solid #DBDBDB', borderRadius: 8, padding: '5px 10px', fontSize: 12, fontFamily: 'inherit', outline: 'none', color: '#111', background: '#FAFAFA', cursor: 'pointer' }}
+                                    >
+                                        {Array.from({ length: 13 }, (_, i) => {
+                                            const d = new Date()
+                                            d.setDate(1)
+                                            d.setMonth(d.getMonth() - i)
+                                            const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+                                            const label = `${d.getFullYear()}年${d.getMonth() + 1}月`
+                                            return <option key={val} value={val}>{label}</option>
+                                        })}
+                                    </select>
                                     <button onClick={downloadCSV}
                                         style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #DBDBDB', background: '#FAFAFA', color: '#262626', padding: '5px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' as const }}>
                                         売上明細CSV
