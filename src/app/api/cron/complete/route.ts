@@ -45,18 +45,51 @@ export async function GET(request: Request) {
         return NextResponse.json({ message: 'No reservations to complete', updated: 0 })
     }
 
-    // 一括でcompletedに更新
+    // 削除対象の写真URLを先に取得
+    const { data: withImages } = await supabase
+        .from('reservations')
+        .select('id, request_image_url')
+        .in('id', completedIds)
+        .not('request_image_url', 'is', null)
+
+    // 一括でcompletedに更新（写真URLもnullにする）
     const { error: updateError } = await supabase
         .from('reservations')
         .update({
             status: 'completed',
             completed_at: now,
+            request_image_url: null,
         })
         .in('id', completedIds)
 
     if (updateError) {
         console.error('update error:', updateError)
         return NextResponse.json({ error: updateError.message }, { status: 500 })
+    }
+
+    // Storageから写真を削除
+    if (withImages && withImages.length > 0) {
+        const filePaths = withImages
+            .map((r: any) => {
+                try {
+                    const url = new URL(r.request_image_url)
+                    // publicUrl形式: /storage/v1/object/public/salon-images/reservation-requests/...
+                    const match = url.pathname.match(/\/salon-images\/(.+)$/)
+                    return match ? match[1] : null
+                } catch { return null }
+            })
+            .filter(Boolean) as string[]
+
+        if (filePaths.length > 0) {
+            const { error: storageError } = await supabase.storage
+                .from('salon-images')
+                .remove(filePaths)
+            if (storageError) {
+                console.error('storage delete error:', storageError)
+            } else {
+                console.log(`[cron/complete] ${filePaths.length}件のリクエスト写真を削除`)
+            }
+        }
     }
 
     console.log(`[cron/complete] ${completedIds.length}件をcompletedに更新`)

@@ -999,9 +999,19 @@ export default function DashboardPage() {
                                         </span>
                                         <span style={{ fontSize: 11, color: '#737373' }}>{new Date(res.reserved_at).toLocaleString('ja-JP')}</span>
                                     </div>
-                                    <div style={{ fontSize: 14, fontWeight: 700 }}>{res.menus?.name}</div>
-                                    <div style={{ fontSize: 12, fontWeight: 700, ...gradText }}>¥{res.menus?.price?.toLocaleString()}</div>
-                                    {res.stylists?.name && <div style={{ fontSize: 11, color: '#737373' }}>担当：{res.stylists.name}</div>}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: 14, fontWeight: 700 }}>{res.menus?.name}</div>
+                                            <div style={{ fontSize: 12, fontWeight: 700, ...gradText }}>¥{res.menus?.price?.toLocaleString()}</div>
+                                            {res.stylists?.name && <div style={{ fontSize: 11, color: '#737373' }}>担当：{res.stylists.name}</div>}
+                                        </div>
+                                        {res.request_image_url && (
+                                            <a href={res.request_image_url} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+                                                <img src={res.request_image_url} alt="リクエスト写真" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, border: '1.5px solid #DBDBDB', display: 'block' }} />
+                                                <div style={{ fontSize: 9, color: '#833AB4', fontWeight: 700, textAlign: 'center', marginTop: 2 }}>スタイル希望</div>
+                                            </a>
+                                        )}
+                                    </div>
                                     {(() => {
                                         const isBlocked = blocks.some(b => b.blocked_id === res.user_id)
                                         return (

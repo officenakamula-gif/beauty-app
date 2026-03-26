@@ -84,6 +84,9 @@ export default function SalonDetailPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState('')
   const [selectedTime, setSelectedTime] = useState('')
+  const [requestImageFile, setRequestImageFile] = useState<File | null>(null)
+  const [requestImagePreview, setRequestImagePreview] = useState('')
+  const [requestImageUploading, setRequestImageUploading] = useState(false)
 
   const [schedules, setSchedules] = useState<any[]>([])
   const [reservations, setReservations] = useState<any[]>([])
@@ -308,11 +311,28 @@ export default function SalonDetailPage() {
       }
     }
 
+    // ③ リクエスト写真アップロード
+    let requestImageUrl: string | null = null
+    if (requestImageFile) {
+      setRequestImageUploading(true)
+      const ext = requestImageFile.name.split('.').pop()
+      const fileName = `reservation-requests/${user.id}/${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('salon-images')
+        .upload(fileName, requestImageFile, { upsert: true })
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage.from('salon-images').getPublicUrl(fileName)
+        requestImageUrl = urlData.publicUrl
+      }
+      setRequestImageUploading(false)
+    }
+
     const { error } = await supabase.from('reservations').insert({
       user_id: user.id, salon_id: id,
       menu_id: selectedMenu.id,
       stylist_id: selectedStylist?.id || null,
       reserved_at: reservedAt,
+      request_image_url: requestImageUrl,
     })
     if (error) { alert('予約失敗: ' + error.message); setBookingLoading(false); return }
     const dateStr = `${selectedDate} ${selectedTime}`
@@ -873,6 +893,31 @@ export default function SalonDetailPage() {
                         <span style={{ fontSize: 18, fontWeight: 700, ...gradText }}>¥{selectedMenu?.price.toLocaleString()}</span>
                       </div>
                     </div>
+                    {/* リクエスト写真アップロード */}
+                    <div style={{ background: 'white', border: '1px solid #DBDBDB', borderRadius: 10, padding: 14, marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#262626', marginBottom: 4 }}>ご希望スタイルの写真（任意）</div>
+                      <div style={{ fontSize: 11, color: '#737373', lineHeight: 1.7, marginBottom: 10 }}>
+                        参考にしたいヘアスタイルや仕上がりイメージの写真を添付できます。<br />
+                        <span style={{ color: '#E1306C', fontWeight: 700 }}>※ ご希望に必ずしもお応えできるとは限りません。</span>
+                      </div>
+                      {requestImagePreview ? (
+                        <div style={{ position: 'relative', display: 'inline-block', marginBottom: 8 }}>
+                          <img src={requestImagePreview} alt="プレビュー" style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 10, display: 'block', border: '1.5px solid #DBDBDB' }} />
+                          <button onClick={() => { setRequestImageFile(null); setRequestImagePreview('') }}
+                            style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', width: 22, height: 22, borderRadius: '50%', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>×</button>
+                        </div>
+                      ) : (
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, border: '1.5px dashed #DBDBDB', background: '#FAFAFA', color: '#737373', padding: '8px 16px', borderRadius: 10, cursor: 'pointer' }}>
+                          📷 写真を選ぶ
+                          <input type="file" accept="image/*" style={{ display: 'none' }}
+                            onChange={e => {
+                              const f = e.target.files?.[0]
+                              if (f) { setRequestImageFile(f); setRequestImagePreview(URL.createObjectURL(f)) }
+                            }} />
+                        </label>
+                      )}
+                    </div>
+
                     <div style={{ background: '#FFFDE7', border: '1px solid #FFF176', borderRadius: 10, padding: '10px 14px', marginBottom: 14 }}>
                       <div style={{ fontSize: 11, color: '#F57F17', lineHeight: 1.7 }}>サロンの承認後に予約確定となります。3日以内に承認がない場合は自動キャンセルになります。</div>
                       <div style={{ fontSize: 11, color: '#F57F17', lineHeight: 1.7, marginTop: 4 }}>予約状況はマイページでご確認いただけます。</div>
