@@ -42,7 +42,8 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [uploading, setUploading] = useState(false)
-    const [tab, setTab] = useState<'stats' | 'salon' | 'menus' | 'stylists' | 'photos' | 'reservations' | 'users' | 'messages'>('stats')
+    const [tab, setTab] = useState<'stats' | 'salon' | 'menus' | 'stylists' | 'photos' | 'reservations' | 'users' | 'messages' | 'preview'>('stats')
+    const [previewDevice, setPreviewDevice] = useState<'pc' | 'sp'>('pc')
     const [salonUsers, setSalonUsers] = useState<any[]>([])
     const [blocks, setBlocks] = useState<any[]>([])
     const [withdrawing, setWithdrawing] = useState(false)
@@ -478,6 +479,7 @@ export default function DashboardPage() {
         { key: 'photos', label: '写真管理' },
         { key: 'reservations', label: '予約管理' },
         { key: 'users', label: 'ユーザー管理' },
+        { key: 'preview', label: 'プレビュー' },
     ]
 
     const card: any = { background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: 24, marginBottom: 16 }
@@ -1034,6 +1036,74 @@ export default function DashboardPage() {
                             ))}
                     </div>
                 )}
+                {/* PREVIEW TAB */}
+                {tab === 'preview' && (
+                    <div>
+                        {!salon ? (
+                            <div style={{ ...card, textAlign: 'center', padding: '40px 24px', color: '#737373', fontSize: 13 }}>
+                                サロン情報を登録するとプレビューが表示されます
+                            </div>
+                        ) : (
+                            <div style={card}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>
+                                    <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em' }}>サロンページ プレビュー</div>
+                                    <div style={{ display: 'flex', gap: 6 }}>
+                                        <button onClick={() => setPreviewDevice('pc')}
+                                            style={{ fontSize: 11, fontWeight: 700, padding: '6px 16px', borderRadius: 8, border: previewDevice === 'pc' ? 'none' : '1.5px solid #DBDBDB', background: previewDevice === 'pc' ? grad : '#FAFAFA', color: previewDevice === 'pc' ? 'white' : '#737373', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s' }}>
+                                            💻 PC
+                                        </button>
+                                        <button onClick={() => setPreviewDevice('sp')}
+                                            style={{ fontSize: 11, fontWeight: 700, padding: '6px 16px', borderRadius: 8, border: previewDevice === 'sp' ? 'none' : '1.5px solid #DBDBDB', background: previewDevice === 'sp' ? grad : '#FAFAFA', color: previewDevice === 'sp' ? 'white' : '#737373', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s' }}>
+                                            📱 スマホ
+                                        </button>
+                                        <a href={`/salons/${salon.id}`} target="_blank" rel="noopener noreferrer"
+                                            style={{ fontSize: 11, fontWeight: 700, padding: '6px 16px', borderRadius: 8, border: '1.5px solid #DBDBDB', background: '#FAFAFA', color: '#262626', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                            ↗ 新しいタブで開く
+                                        </a>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'center', background: '#F2F2F2', borderRadius: 12, padding: '24px 16px', minHeight: 600, overflowX: 'auto' }}>
+                                    <div style={{
+                                        transition: 'all 0.3s ease',
+                                        width: previewDevice === 'pc' ? '100%' : 375,
+                                        maxWidth: previewDevice === 'pc' ? '100%' : 375,
+                                        minWidth: previewDevice === 'sp' ? 375 : undefined,
+                                        boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+                                        borderRadius: previewDevice === 'sp' ? 24 : 8,
+                                        overflow: 'hidden',
+                                        border: previewDevice === 'sp' ? '6px solid #222' : 'none',
+                                        background: 'white',
+                                    }}>
+                                        {previewDevice === 'sp' && (
+                                            <div style={{ height: 12, background: '#222', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                                <div style={{ width: 60, height: 4, background: '#444', borderRadius: 100 }} />
+                                            </div>
+                                        )}
+                                        <iframe
+                                            src={`/salons/${salon.id}`}
+                                            style={{
+                                                width: '100%',
+                                                height: previewDevice === 'sp' ? 720 : 700,
+                                                border: 'none',
+                                                display: 'block',
+                                            }}
+                                            title="サロンプレビュー"
+                                        />
+                                        {previewDevice === 'sp' && (
+                                            <div style={{ height: 20, background: '#222', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                                <div style={{ width: 40, height: 4, background: '#444', borderRadius: 100 }} />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div style={{ marginTop: 12, fontSize: 11, color: '#737373', textAlign: 'center' }}>
+                                    ※ プレビューはサロンページの実際の表示です。ページを更新すると最新の内容が反映されます。
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* PHOTOS TAB */}
                 {tab === 'photos' && (
                     <div>
