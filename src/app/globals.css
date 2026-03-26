@@ -44,3 +44,67 @@ html, body {
   border: 2px solid transparent;
   background: linear-gradient(white, white) padding-box, var(--grad) border-box;
 }
+/* =====================
+   モバイル対応 (〜767px)
+   ===================== */
+@media (max-width: 767px) {
+
+  /* ヘッダー */
+  .sp-header {
+    padding: 0 16px !important;
+  }
+  .sp-hide {
+    display: none !important;
+  }
+
+  /* ジャンルタブ */
+  .sp-genre-tabs {
+    padding: 0 4px !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sp-genre-tabs button {
+    padding: 12px 14px !important;
+    font-size: 12px !important;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* ジャンル検索・各セクション */
+  .sp-section-pad {
+    padding: 16px !important;
+  }
+
+  /* メインレイアウト: 2カラム→1カラム */
+  .sp-main-layout {
+    grid-template-columns: 1fr !important;
+    padding: 16px !important;
+    gap: 16px !important;
+  }
+
+  /* エリアボタン: 4列→3列 */
+  .sp-area-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* サロンカード画像 */
+  .sp-salon-img {
+    width: 100px !important;
+    min-height: 100px !important;
+  }
+
+  /* 2列→1列 */
+  .sp-2col {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 3列→1列 */
+  .sp-3col {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* フッター */
+  .sp-footer {
+    padding: 24px 16px !important;
+  }
+}
