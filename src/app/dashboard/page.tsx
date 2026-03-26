@@ -187,7 +187,11 @@ export default function DashboardPage() {
     }
 
     const saveSalon = async () => {
-        if (!salonForm.name || !salonForm.area || !salonForm.address) { alert('サロン名・エリア・住所は必須です'); return }
+        if (!salonForm.name) { alert('サロン名は必須です'); return }
+        if (!salonForm.area) { alert('エリアを選択してください'); return }
+        if (!salonForm.address) { alert('住所は必須です'); return }
+        if (!salonForm.phone) { alert('電話番号は必須です'); return }
+        if (!salonForm.description || salonForm.description.trim().length < 10) { alert('説明文は10文字以上入力してください'); return }
         setSaving(true)
         const payload = {
             name: salonForm.name, genre: salonForm.genre, sub_genre: salonForm.sub_genre || null, area: salonForm.area,
@@ -480,7 +484,7 @@ export default function DashboardPage() {
     return (
         <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
             {/* Header */}
-            <header style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <header className="sp-header" style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Link href="/" style={{ fontSize: 20, fontWeight: 700, textDecoration: 'none', ...gradText }}>Salon de Beauty</Link>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <span style={{ fontSize: 12, color: '#737373' }}>{user?.email}</span>
@@ -490,7 +494,7 @@ export default function DashboardPage() {
             </header>
 
             {/* Tabs */}
-            <div style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', display: 'flex' }}>
+            <div className="sp-dashboard-tabs" style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', display: 'flex' }}>
                 {tabList.map(t => (
                     <button key={t.key} onClick={() => setTab(t.key as any)}
                         style={{ padding: '12px 20px', fontSize: 12, fontWeight: 700, border: 'none', borderBottom: tab === t.key ? '2px solid #E1306C' : '2px solid transparent', background: 'none', cursor: 'pointer', color: tab === t.key ? '#111' : '#737373', fontFamily: 'inherit', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>
@@ -499,7 +503,7 @@ export default function DashboardPage() {
                 ))}
             </div>
 
-            <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 32px' }}>
+            <div className="sp-dashboard-main" style={{ maxWidth: 720, margin: '0 auto', padding: '24px 32px' }}>
 
                 {/* SALON INFO TAB */}
                 {tab === 'salon' && (
@@ -519,7 +523,7 @@ export default function DashboardPage() {
                                 <div>
                                     <label style={labelStyle}>店内・サロン画像（複数可）</label>
                                     {(salon.gallery_images || []).length > 0 && (
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 8 }}>
+                                        <div className="sp-photo-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 8 }}>
                                             {(salon.gallery_images || []).map((url: string, i: number) => (
                                                 <div key={i} style={{ position: 'relative' }}>
                                                     <img src={url} alt="" style={{ width: '100%', height: 96, objectFit: 'cover', borderRadius: 8 }} />
@@ -913,7 +917,7 @@ export default function DashboardPage() {
                                         return (
                                             <div key={cat} style={{ marginBottom: 20 }}>
                                                 <div style={{ fontSize: 11, fontWeight: 700, color: '#737373', marginBottom: 10 }}>{catLabel[cat]}</div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+                                                <div className="sp-4col-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
                                                     {photos.map(photo => (
                                                         <div key={photo.id} style={{ position: 'relative' }}>
                                                             <img src={photo.image_url} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8 }} />
@@ -954,7 +958,7 @@ export default function DashboardPage() {
                                                 }} />
                                         </label>
                                     </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+                                    <div className="sp-4col-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
                                         {stylistPhotos.filter(p => p.stylist_id === s.id).map(photo => (
                                             <div key={photo.id} style={{ position: 'relative' }}>
                                                 <img src={photo.image_url} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8 }} />
