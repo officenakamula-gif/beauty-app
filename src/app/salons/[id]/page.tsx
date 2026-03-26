@@ -1015,8 +1015,19 @@ export default function SalonDetailPage() {
                     </div>
 
                     <div style={{ background: '#FFFDE7', border: '1px solid #FFF176', borderRadius: 10, padding: '10px 14px', marginBottom: 14 }}>
-                      <div style={{ fontSize: 11, color: '#F57F17', lineHeight: 1.7 }}>サロンの承認後に予約確定となります。3日以内に承認がない場合は自動キャンセルになります。</div>
-                      <div style={{ fontSize: 11, color: '#F57F17', lineHeight: 1.7, marginTop: 4 }}>予約状況はマイページでご確認いただけます。</div>
+                      <div style={{ fontSize: 11, color: '#F57F17', lineHeight: 1.9 }}>
+                        ・サロンの承認後に予約確定となります。<br />
+                        ・3日以内に承認がない場合は自動キャンセルになります。<br />
+                        ・予約状況はマイページでご確認いただけます。
+                      </div>
+                    </div>
+                    <div style={{ background: '#FFF0F5', border: '1px solid #F0A0C0', borderRadius: 10, padding: '10px 14px', marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#C62828', marginBottom: 4 }}>キャンセルについて</div>
+                      <div style={{ fontSize: 11, color: '#C62828', lineHeight: 1.9 }}>
+                        ・<span style={{ fontWeight: 700 }}>承認待ち（pending）の間</span>はマイページからキャンセルできます。<br />
+                        ・<span style={{ fontWeight: 700 }}>予約確定後のキャンセルはサロンへ直接ご連絡ください。</span><br />
+                        ・サロン都合によるキャンセルの場合、決済済みの場合は返金対応いたします。
+                      </div>
                     </div>
                     <button onClick={makeReservation} disabled={bookingLoading || !user}
                       style={{ width: '100%', background: grad, color: 'white', border: 'none', padding: 15, borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: bookingLoading || !user ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: bookingLoading || !user ? 0.5 : 1 }}>

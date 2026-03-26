@@ -1217,7 +1217,11 @@ export default function DashboardPage() {
                                                 style={{ flex: 1, background: '#E8F5E9', color: '#388E3C', border: '1.5px solid #A5D6A7', padding: '7px 0', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                                                 承認する
                                             </button>
-                                            <button onClick={() => updateReservationStatus(res.id, 'cancelled')}
+                                            <button onClick={() => {
+                                                if (confirm('この予約をキャンセルしますか？\n\n【注意】\n・決済が完了している場合、返金処理が必要になります。\n・キャンセル後は取り消せません。')) {
+                                                    updateReservationStatus(res.id, 'cancelled')
+                                                }
+                                            }}
                                                 style={{ flex: 1, background: '#FFEBEE', color: '#C62828', border: '1.5px solid #FFCDD2', padding: '7px 0', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                                                 キャンセル
                                             </button>
