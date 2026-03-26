@@ -274,6 +274,40 @@ export default function SalonDetailPage() {
       return
     }
     const reservedAt = `${selectedDate}T${selectedTime}:00+09:00`
+
+    // ① 同ユーザーが同サロン・同日時に既存の有効予約がないかチェック
+    const { data: userDup } = await supabase
+      .from('reservations')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('salon_id', id)
+      .eq('reserved_at', reservedAt)
+      .in('status', ['pending', 'confirmed'])
+      .maybeSingle()
+    if (userDup) {
+      alert('この日時はすでに予約済みです。')
+      setBookingLoading(false)
+      return
+    }
+
+    // ② スタイリスト指名がある場合：同スタイリスト・同日時の重複チェック
+    if (selectedStylist?.id) {
+      const endTime = new Date(new Date(reservedAt).getTime() + selectedMenu.duration * 60 * 1000).toISOString()
+      const { data: stylistDup } = await supabase
+        .from('reservations')
+        .select('id, reserved_at, menus(duration)')
+        .eq('stylist_id', selectedStylist.id)
+        .in('status', ['pending', 'confirmed'])
+        .gte('reserved_at', reservedAt)
+        .lt('reserved_at', endTime)
+        .maybeSingle()
+      if (stylistDup) {
+        alert('この時間帯はスタイリストの予約が埋まっています。別の時間をお選びください。')
+        setBookingLoading(false)
+        return
+      }
+    }
+
     const { error } = await supabase.from('reservations').insert({
       user_id: user.id, salon_id: id,
       menu_id: selectedMenu.id,
