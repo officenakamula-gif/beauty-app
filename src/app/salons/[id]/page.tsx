@@ -93,6 +93,7 @@ export default function SalonDetailPage() {
   const [availabilityLoading, setAvailabilityLoading] = useState(false)
   const [bookingLoading, setBookingLoading] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
+  const [isFirstVisit, setIsFirstVisit] = useState<boolean | null>(null) // null=未判定
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -132,6 +133,16 @@ export default function SalonDetailPage() {
         .from('blocks').select('id')
         .eq('blocked_id', currentUser.id).eq('blocked_salon_id', id).maybeSingle()
       setIsBlocked(!!blockData)
+      // 初回来店判定：completed の予約が0件なら初回
+      const { count } = await supabase
+        .from('reservations')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', currentUser.id)
+        .eq('salon_id', id)
+        .eq('status', 'completed')
+      setIsFirstVisit((count ?? 0) === 0)
+    } else {
+      setIsFirstVisit(null) // 未ログイン
     }
   }
 
@@ -267,6 +278,20 @@ export default function SalonDetailPage() {
   const makeReservation = async () => {
     if (isBlocked) { alert('このサロンへの予約はできません。'); return }
     if (!user) { router.push(`/auth?redirect=/salons/${id}`); return }
+    // 初回限定メニューの場合、初回来店かどうか再確認（DBで確定判定）
+    if (selectedMenu?.is_first_visit) {
+      const { count } = await supabase
+        .from('reservations')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('salon_id', id)
+        .eq('status', 'completed')
+      if ((count ?? 0) > 0) {
+        alert('このメニューは初回限定です。2回目以降のご来店には適用できません。')
+        setBookingLoading(false)
+        return
+      }
+    }
     setBookingLoading(true)
     const slotDate = new Date(`${selectedDate}T${selectedTime}:00+09:00`)
     const now = new Date()
@@ -685,23 +710,53 @@ export default function SalonDetailPage() {
                     <div style={{ fontSize: 14, fontWeight: 700, color: '#111', marginBottom: 12 }}>メニューを選ぶ</div>
                     {menus.length === 0
                       ? <div style={{ textAlign: 'center', color: '#737373', fontSize: 13, padding: '24px 0' }}>メニューがまだありません</div>
-                      : menus.map(menu => (
-                        <div key={menu.id} onClick={() => setSelectedMenu(menu)}
-                          style={{
-                            padding: 14, border: selectedMenu?.id === menu.id ? '2px solid #E1306C' : '1.5px solid #DBDBDB',
-                            borderRadius: 10, cursor: 'pointer', marginBottom: 8, background: selectedMenu?.id === menu.id ? '#FFF0F5' : 'white',
-                            transition: 'all 0.15s',
-                          }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{menu.name}</div>
-                              {menu.description && <div style={{ fontSize: 11, color: '#737373', marginTop: 3, lineHeight: 1.6 }}>{menu.description}</div>}
-                              <div style={{ fontSize: 11, color: '#737373', marginTop: 3 }}>約{menu.duration}分</div>
+                      : menus.map(menu => {
+                          // 初回限定メニューの場合、非初回ユーザーは選択不可
+                          const isFirstOnly = !!menu.is_first_visit
+                          const canSelect = !isFirstOnly || isFirstVisit !== false
+                          const isLocked = isFirstOnly && isFirstVisit === false
+                          return (
+                            <div key={menu.id}
+                              onClick={() => canSelect && setSelectedMenu(menu)}
+                              style={{
+                                padding: 14,
+                                border: selectedMenu?.id === menu.id ? '2px solid #E1306C' : isLocked ? '1.5px solid #EEEEEE' : '1.5px solid #DBDBDB',
+                                borderRadius: 10,
+                                cursor: canSelect ? 'pointer' : 'not-allowed',
+                                marginBottom: 8,
+                                background: selectedMenu?.id === menu.id ? '#FFF0F5' : isLocked ? '#F8F8F8' : 'white',
+                                opacity: isLocked ? 0.55 : 1,
+                                transition: 'all 0.15s',
+                                position: 'relative' as any,
+                              }}>
+                              {/* 初回限定バッジ */}
+                              {isFirstOnly && (
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+                                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: isLocked ? '#E0E0E0' : 'linear-gradient(45deg,#F77737,#E1306C)', color: 'white' }}>
+                                    初回限定
+                                  </span>
+                                  {isLocked && (
+                                    <span style={{ fontSize: 10, color: '#BDBDBD' }}>※ 2回目以降のご来店には適用できません</span>
+                                  )}
+                                  {!isLocked && isFirstVisit && (
+                                    <span style={{ fontSize: 10, color: '#E1306C' }}>✓ あなたは初回限定対象です</span>
+                                  )}
+                                  {!isLocked && isFirstVisit === null && (
+                                    <span style={{ fontSize: 10, color: '#737373' }}>ログイン後に確認できます</span>
+                                  )}
+                                </div>
+                              )}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 14, fontWeight: 700, color: isLocked ? '#BDBDBD' : '#111' }}>{menu.name}</div>
+                                  {menu.description && <div style={{ fontSize: 11, color: '#737373', marginTop: 3, lineHeight: 1.6 }}>{menu.description}</div>}
+                                  <div style={{ fontSize: 11, color: '#737373', marginTop: 3 }}>約{menu.duration}分</div>
+                                </div>
+                                <div style={{ fontSize: 15, fontWeight: 700, ...(isLocked ? { color: '#BDBDBD' } : gradText), marginLeft: 12, flexShrink: 0 }}>¥{menu.price.toLocaleString()}</div>
+                              </div>
                             </div>
-                            <div style={{ fontSize: 15, fontWeight: 700, ...gradText, marginLeft: 12, flexShrink: 0 }}>¥{menu.price.toLocaleString()}</div>
-                          </div>
-                        </div>
-                      ))}
+                          )
+                        })}
                     <button onClick={() => selectedMenu && setStep(2)} disabled={!selectedMenu}
                       style={{ width: '100%', marginTop: 8, background: selectedMenu ? grad : '#E0E0E0', color: 'white', border: 'none', padding: 13, borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: selectedMenu ? 'pointer' : 'not-allowed', fontFamily: 'inherit', opacity: selectedMenu ? 1 : 0.5 }}>
                       次へ（スタイリストを選ぶ）→

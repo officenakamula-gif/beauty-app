@@ -61,7 +61,9 @@ export default function DashboardPage() {
         bank_name: '', bank_branch: '', bank_account_type: 'savings',
         bank_account_number: '', bank_account_name: '',
     })
-    const [menuForm, setMenuForm] = useState({ name: '', price: '', duration: '', description: '' })
+    const [menuForm, setMenuForm] = useState({ name: '', price: '', duration: '', description: '', is_first_visit: false })
+    const [editingMenuId, setEditingMenuId] = useState<string | null>(null)
+    const [editMenuForm, setEditMenuForm] = useState({ name: '', price: '', duration: '', description: '', is_first_visit: false })
     const [stylistForm, setStylistForm] = useState({ name: '', role: '', experience_years: '', description: '', instagram: '' })
     const [stylistImageFile, setStylistImageFile] = useState<File | null>(null)
     const [stylistImagePreview, setStylistImagePreview] = useState('')
@@ -218,9 +220,10 @@ export default function DashboardPage() {
         const { error } = await supabase.from('menus').insert({
             salon_id: salon.id, name: menuForm.name, price: parseInt(menuForm.price),
             duration: parseInt(menuForm.duration), description: menuForm.description || null,
+            is_first_visit: menuForm.is_first_visit,
         })
         if (error) { alert('エラー: ' + error.message); return }
-        setMenuForm({ name: '', price: '', duration: '', description: '' })
+        setMenuForm({ name: '', price: '', duration: '', description: '', is_first_visit: false })
         const { data } = await supabase.from('menus').select('*').eq('salon_id', salon.id)
         setMenus(data || [])
     }
@@ -229,6 +232,32 @@ export default function DashboardPage() {
         if (!confirm('削除しますか？')) return
         await supabase.from('menus').delete().eq('id', id)
         setMenus(menus.filter(m => m.id !== id))
+    }
+
+    const startEditMenu = (menu: any) => {
+        setEditingMenuId(menu.id)
+        setEditMenuForm({
+            name: menu.name || '',
+            price: String(menu.price || ''),
+            duration: String(menu.duration || ''),
+            description: menu.description || '',
+            is_first_visit: !!menu.is_first_visit,
+        })
+    }
+
+    const saveEditMenu = async (id: string) => {
+        if (!editMenuForm.name || !editMenuForm.price || !editMenuForm.duration) { alert('名前・料金・時間は必須です'); return }
+        const { error } = await supabase.from('menus').update({
+            name: editMenuForm.name,
+            price: parseInt(editMenuForm.price),
+            duration: parseInt(editMenuForm.duration),
+            description: editMenuForm.description || null,
+            is_first_visit: editMenuForm.is_first_visit,
+        }).eq('id', id)
+        if (error) { alert('エラー: ' + error.message); return }
+        const { data } = await supabase.from('menus').select('*').eq('salon_id', salon.id)
+        setMenus(data || [])
+        setEditingMenuId(null)
     }
 
     const addStylist = async () => {
@@ -684,6 +713,17 @@ export default function DashboardPage() {
                                     <input value={menuForm.duration} onChange={e => setMenuForm({ ...menuForm, duration: e.target.value })} placeholder="60" type="number" style={inputStyle} />
                                 </div>
                             </div>
+                            {/* 初回限定トグル */}
+                            <div onClick={() => setMenuForm({ ...menuForm, is_first_visit: !menuForm.is_first_visit })}
+                                style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '10px 14px', borderRadius: 10, border: menuForm.is_first_visit ? '1.5px solid #E1306C' : '1.5px solid #DBDBDB', background: menuForm.is_first_visit ? '#FFF0F5' : '#FAFAFA', cursor: 'pointer', userSelect: 'none' as any }}>
+                                <div style={{ width: 36, height: 20, borderRadius: 100, background: menuForm.is_first_visit ? 'linear-gradient(45deg,#F77737,#E1306C)' : '#DBDBDB', position: 'relative', transition: 'all 0.2s', flexShrink: 0 }}>
+                                    <div style={{ position: 'absolute', top: 2, left: menuForm.is_first_visit ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'all 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 12, fontWeight: 700, color: menuForm.is_first_visit ? '#E1306C' : '#737373' }}>初回限定クーポン</div>
+                                    <div style={{ fontSize: 10, color: '#737373', marginTop: 1 }}>ONにすると初来店のお客様のみ予約可能になります</div>
+                                </div>
+                            </div>
                             <button onClick={addMenu} style={{ width: '100%', background: grad, color: 'white', border: 'none', padding: 11, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>+ 追加する</button>
                         </div>
 
@@ -691,24 +731,72 @@ export default function DashboardPage() {
                             <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #DBDBDB' }}>登録済みメニュー（{menus.length}件）</div>
                             {menus.length === 0 ? <div style={{ textAlign: 'center', color: '#737373', padding: '20px 0', fontSize: 13 }}>メニューがまだありません</div>
                                 : menus.map(menu => (
-                                    <div key={menu.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '12px 0', borderBottom: '1px solid #DBDBDB' }}>
-                                        <div style={{ display: 'flex', gap: 10, flex: 1 }}>
-                                            {menu.image_url && (
-                                                <img src={menu.image_url} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />
-                                            )}
-                                            <div style={{ flex: 1 }}>
-                                            <div style={{ fontSize: 14, fontWeight: 700 }}>{menu.name}</div>
-                                            {menu.description && <div style={{ fontSize: 11, color: '#737373', marginTop: 2, lineHeight: 1.5 }}>{menu.description}</div>}
-                                            <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4, ...gradText }}>¥{menu.price.toLocaleString()}&nbsp;&nbsp;<span style={{ fontSize: 11, color: '#737373', background: 'none', WebkitTextFillColor: '#737373' }}>{menu.duration}分</span></div>
+                                    <div key={menu.id} style={{ padding: '12px 0', borderBottom: '1px solid #DBDBDB' }}>
+                                        {editingMenuId === menu.id ? (
+                                            /* ── 編集フォーム ── */
+                                            <div style={{ background: '#FAFAFA', borderRadius: 10, padding: 14, border: '1.5px solid #E1306C' }}>
+                                                <div style={{ fontSize: 12, fontWeight: 700, color: '#E1306C', marginBottom: 12 }}>メニューを編集</div>
+                                                <div style={{ marginBottom: 8 }}>
+                                                    <input value={editMenuForm.name} onChange={e => setEditMenuForm({ ...editMenuForm, name: e.target.value })} placeholder="メニュー名 *" style={inputStyle} />
+                                                </div>
+                                                <div style={{ marginBottom: 8 }}>
+                                                    <textarea value={editMenuForm.description} onChange={e => setEditMenuForm({ ...editMenuForm, description: e.target.value })}
+                                                        placeholder="メニューの説明（任意）" style={{ ...inputStyle, height: 56, resize: 'none' as any }} />
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <label style={labelStyle}>料金（円）</label>
+                                                        <input value={editMenuForm.price} onChange={e => setEditMenuForm({ ...editMenuForm, price: e.target.value })} type="number" style={inputStyle} />
+                                                    </div>
+                                                    <div style={{ flex: 1 }}>
+                                                        <label style={labelStyle}>所要時間（分）</label>
+                                                        <input value={editMenuForm.duration} onChange={e => setEditMenuForm({ ...editMenuForm, duration: e.target.value })} type="number" style={inputStyle} />
+                                                    </div>
+                                                </div>
+                                                {/* 初回限定トグル */}
+                                                <div onClick={() => setEditMenuForm({ ...editMenuForm, is_first_visit: !editMenuForm.is_first_visit })}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, padding: '10px 14px', borderRadius: 10, border: editMenuForm.is_first_visit ? '1.5px solid #E1306C' : '1.5px solid #DBDBDB', background: editMenuForm.is_first_visit ? '#FFF0F5' : 'white', cursor: 'pointer', userSelect: 'none' as any }}>
+                                                    <div style={{ width: 36, height: 20, borderRadius: 100, background: editMenuForm.is_first_visit ? 'linear-gradient(45deg,#F77737,#E1306C)' : '#DBDBDB', position: 'relative', transition: 'all 0.2s', flexShrink: 0 }}>
+                                                        <div style={{ position: 'absolute', top: 2, left: editMenuForm.is_first_visit ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'all 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                                                    </div>
+                                                    <div style={{ fontSize: 12, fontWeight: 700, color: editMenuForm.is_first_visit ? '#E1306C' : '#737373' }}>初回限定クーポン</div>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 8 }}>
+                                                    <button onClick={() => saveEditMenu(menu.id)}
+                                                        style={{ flex: 1, background: grad, color: 'white', border: 'none', padding: '9px 0', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>保存する</button>
+                                                    <button onClick={() => setEditingMenuId(null)}
+                                                        style={{ flex: 1, border: '1.5px solid #DBDBDB', background: 'none', padding: '9px 0', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#737373' }}>キャンセル</button>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginLeft: 12, alignItems: 'center' }}>
-                                            <label style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #DBDBDB', background: '#FAFAFA', color: '#262626', padding: '4px 10px', borderRadius: 8, cursor: 'pointer' }}>
-                                                {menu.image_url ? '写真変更' : '写真追加'}
-                                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadMenuImage(f, menu.id) }} />
-                                            </label>
-                                            <button onClick={() => deleteMenu(menu.id)} style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #FFCDD2', background: '#FFEBEE', color: '#C62828', padding: '4px 10px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>削除</button>
-                                        </div>
+                                        ) : (
+                                            /* ── 通常表示 ── */
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                <div style={{ display: 'flex', gap: 10, flex: 1 }}>
+                                                    {menu.image_url && (
+                                                        <img src={menu.image_url} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />
+                                                    )}
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                                            <div style={{ fontSize: 14, fontWeight: 700 }}>{menu.name}</div>
+                                                            {menu.is_first_visit && (
+                                                                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: 'linear-gradient(45deg,#F77737,#E1306C)', color: 'white', flexShrink: 0 }}>初回限定</span>
+                                                            )}
+                                                        </div>
+                                                        {menu.description && <div style={{ fontSize: 11, color: '#737373', marginTop: 2, lineHeight: 1.5 }}>{menu.description}</div>}
+                                                        <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4, ...gradText }}>¥{menu.price.toLocaleString()}&nbsp;&nbsp;<span style={{ fontSize: 11, color: '#737373', background: 'none', WebkitTextFillColor: '#737373' }}>{menu.duration}分</span></div>
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginLeft: 12, alignItems: 'center' }}>
+                                                    <button onClick={() => startEditMenu(menu)}
+                                                        style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #DBDBDB', background: '#FAFAFA', color: '#262626', padding: '4px 10px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>編集</button>
+                                                    <label style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #DBDBDB', background: '#FAFAFA', color: '#262626', padding: '4px 10px', borderRadius: 8, cursor: 'pointer' }}>
+                                                        {menu.image_url ? '写真変更' : '写真追加'}
+                                                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadMenuImage(f, menu.id) }} />
+                                                    </label>
+                                                    <button onClick={() => deleteMenu(menu.id)} style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #FFCDD2', background: '#FFEBEE', color: '#C62828', padding: '4px 10px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>削除</button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                         </div>
