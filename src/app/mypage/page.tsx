@@ -96,7 +96,7 @@ export default function MyPage() {
 
   const Card = ({ res, past }: { res: any, past: boolean }) => (
     <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: '18px 20px', marginBottom: 10, opacity: past ? 0.65 : 1 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+      <div className="sp-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 100, background: statusConfig[res.status]?.bg, color: statusConfig[res.status]?.color }}>
           {statusConfig[res.status]?.label}
         </span>
@@ -131,10 +131,10 @@ export default function MyPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
-      <header style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <header className="sp-header" style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Link href="/" style={{ fontSize: 20, fontWeight: 700, textDecoration: 'none', ...gradText }}>Salon de Beauty</Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 12, color: '#737373' }}>{user?.email}</span>
+          <span className="sp-hide" style={{ fontSize: 12, color: '#737373' }}>{user?.email}</span>
           <button onClick={async () => { await supabase.auth.signOut(); router.push('/') }}
             style={{ fontSize: 12, border: '1.5px solid #DBDBDB', background: 'none', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: '#262626' }}>
             ログアウト
@@ -142,7 +142,7 @@ export default function MyPage() {
         </div>
       </header>
 
-      <div style={{ maxWidth: 640, margin: '0 auto', padding: '24px 32px' }}>
+      <div className="sp-mypage-main" style={{ maxWidth: 640, margin: '0 auto', padding: '24px 32px' }}>
         <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 24, ...gradText }}>My Page</div>
 
         <div style={{ fontSize: 11, fontWeight: 700, color: '#737373', letterSpacing: '0.1em', marginBottom: 12 }}>進行中の予約</div>

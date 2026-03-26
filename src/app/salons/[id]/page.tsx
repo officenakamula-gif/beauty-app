@@ -318,7 +318,7 @@ export default function SalonDetailPage() {
     <div style={{ minHeight: '100vh', background: '#FAFAFA', fontFamily: "'Noto Sans JP', sans-serif" }}>
 
       {/* ── ヘッダー ── */}
-      <header style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 24px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <header className="sp-header" style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 24px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Link href="/" style={{ fontSize: 18, fontWeight: 700, textDecoration: 'none', ...gradText }}>Salon de Beauty</Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           {user ? (
@@ -341,7 +341,7 @@ export default function SalonDetailPage() {
           </div>
         )
         return (
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '150px 100px', gap: 2, maxHeight: 252, overflow: 'hidden', background: '#000' }}>
+          <div className="sp-gallery-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: '150px 100px', gap: 2, maxHeight: 252, overflow: 'hidden', background: '#000' }}>
             <img src={images[0]} alt="" style={{ gridRow: '1/3', width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             {[1, 2, 3, 4].map(i => (
               images[i]
@@ -353,7 +353,7 @@ export default function SalonDetailPage() {
       })()}
 
       {/* ── 2カラムレイアウト ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 16, maxWidth: '980px', margin: '0 auto', padding: '16px 16px 40px' }}>
+      <div className="sp-salon-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 16, maxWidth: '980px', margin: '0 auto', padding: '16px 16px 40px' }}>
 
         {/* ════ 左カラム ════ */}
         <div style={{ minWidth: 0 }}>
@@ -441,7 +441,7 @@ export default function SalonDetailPage() {
                 {salonPhotos.filter(p => p.category === 'interior').length > 0 && (
                   <div style={{ marginBottom: 24 }}>
                     <div style={sectionTitle}>店内・雰囲気</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
+                    <div className="sp-photo-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
                       {salonPhotos.filter(p => p.category === 'interior').map(photo => (
                         <img key={photo.id} src={photo.image_url} alt={photo.caption || ''} style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover', borderRadius: 8 }} />
                       ))}
@@ -512,7 +512,7 @@ export default function SalonDetailPage() {
                 {salonPhotos.filter(p => p.category === 'style').length > 0 ? (
                   <div style={{ marginBottom: 24 }}>
                     <div style={sectionTitle}>スタイル・施術例</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                    <div className="sp-photo-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
                       {salonPhotos.filter(p => p.category === 'style').map(photo => (
                         <div key={photo.id}>
                           <img src={photo.image_url} alt={photo.caption || ''} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 10 }} />
@@ -545,7 +545,7 @@ export default function SalonDetailPage() {
                               {s.role && <div style={{ fontSize: 11, ...gradText }}>{s.role}</div>}
                             </div>
                           </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
+                          <div className="sp-photo-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
                             {photos.map(photo => (
                               <img key={photo.id} src={photo.image_url} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8 }} />
                             ))}
@@ -740,13 +740,13 @@ export default function SalonDetailPage() {
                             </span>
                           </div>
 
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: 4 }}>
+                          <div className="sp-calendar-header" style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: 4 }}>
                             {DAY_NAMES.map((d, i) => (
                               <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, padding: '4px 0', color: i === 0 ? '#E53935' : i === 6 ? '#5851DB' : '#737373' }}>{d}</div>
                             ))}
                           </div>
 
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3 }}>
+                          <div className="sp-calendar-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3 }}>
                             {calendarDays.map((day, i) => (
                               <div key={i} style={{ aspectRatio: '1' }}>
                                 {day.isEmpty ? <div /> : day.isPast ? (

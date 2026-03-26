@@ -142,12 +142,12 @@ export default function AuthPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAFA', display: 'flex', flexDirection: 'column' }}>
-      <header style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center' }}>
+      <header className="sp-header" style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center' }}>
         <Link href="/" style={{ fontSize: 20, fontWeight: 700, textDecoration: 'none', ...gradStyle }}>Salon de Beauty</Link>
       </header>
 
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
-        <div style={{ width: '100%', maxWidth: 440 }}>
+        <div className="sp-auth-form" style={{ width: '100%', maxWidth: 440 }}>
 
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
             <div style={{ fontSize: 26, fontWeight: 700, ...gradStyle, marginBottom: 6 }}>Salon de Beauty</div>

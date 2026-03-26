@@ -10,11 +10,11 @@ export default function TermsPage() {
       <div style={{ background: '#333', color: '#ccc', fontSize: 11, textAlign: 'center', padding: '5px 0' }}>
         美容サロンの検索・予約サイト｜Salon de Beauty
       </div>
-      <header style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center' }}>
+      <header className="sp-header" style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center' }}>
         <Link href="/" style={{ fontSize: 20, fontWeight: 700, textDecoration: 'none', ...gradText }}>Salon de Beauty</Link>
       </header>
 
-      <div style={{ maxWidth: 760, margin: '0 auto', padding: '40px 32px 80px' }}>
+      <div className="sp-content-main" style={{ maxWidth: 760, margin: '0 auto', padding: '40px 32px 80px' }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8, ...gradText }}>利用規約</h1>
         <p style={{ fontSize: 12, color: '#737373', marginBottom: 40 }}>最終更新日：2026年3月24日</p>
 
@@ -63,7 +63,7 @@ export default function TermsPage() {
         </div>
       </div>
 
-      <footer style={{ background: '#222', color: '#999', padding: '24px 32px', textAlign: 'center' }}>
+      <footer className="sp-footer" style={{ background: '#222', color: '#999', padding: '24px 32px', textAlign: 'center' }}>
         <div style={{ fontSize: 11, color: '#555', marginBottom: 12 }}>
           <Link href="/terms" style={{ color: '#777', textDecoration: 'none', margin: '0 12px' }}>利用規約</Link>
           <Link href="/privacy" style={{ color: '#777', textDecoration: 'none', margin: '0 12px' }}>プライバシーポリシー</Link>
