@@ -126,10 +126,10 @@ export default function HomePage() {
       </div>
 
       {/* Header */}
-      <header style={s.header}>
+      <header style={s.header} className="sp-header">
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' as const }}>
           <div style={s.logo}>Salon de Beauty</div>
-          <div style={{ fontSize: 11, color: '#737373', letterSpacing: '0.04em', whiteSpace: 'nowrap' as const }}>
+          <div className="sp-hide" style={{ fontSize: 11, color: '#737373', letterSpacing: '0.04em', whiteSpace: 'nowrap' as const }}>
             〜サロンドビューティ〜　上質な美容体験を、あなたの街で
           </div>
         </div>
@@ -153,7 +153,7 @@ export default function HomePage() {
       </header>
 
       {/* Genre tabs（大カテゴリ） */}
-      <div style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', display: 'flex' }}>
+      <div className="sp-genre-tabs" style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', display: 'flex' }}>
         {GENRES.map(g => (
           <button key={g.key} onClick={() => { setGenre(g.key); setSelectedSubGenre('') }}
             style={{ padding: '12px 20px', fontSize: 13, fontWeight: 500, border: 'none', borderBottom: genre === g.key ? '2px solid #E1306C' : '2px solid transparent', background: 'none', cursor: 'pointer', color: genre === g.key ? '#111' : '#737373', fontFamily: 'inherit', transition: 'all 0.2s' }}>
@@ -163,7 +163,7 @@ export default function HomePage() {
       </div>
 
       {/* ━━ ジャンルで検索セクション ━━ */}
-      <div style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '20px 32px' }}>
+      <div className="sp-section-pad" style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '20px 32px' }}>
         <div style={{ maxWidth: 1080, margin: '0 auto' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', letterSpacing: '0.08em', marginBottom: 14 }}>
             {genre}をジャンルから探す
@@ -207,7 +207,7 @@ export default function HomePage() {
       </div>
 
       {/* Main layout */}
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '24px 32px', display: 'grid', gridTemplateColumns: '1fr 300px', gap: 28 }}>
+      <div className="sp-main-layout" style={{ maxWidth: 1080, margin: '0 auto', padding: '24px 32px', display: 'grid', gridTemplateColumns: '1fr 300px', gap: 28 }}>
 
         {/* Left column */}
         <div>
@@ -235,7 +235,7 @@ export default function HomePage() {
             </div>
 
             {/* Region buttons */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginBottom: 14 }}>
+            <div className="sp-area-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginBottom: 14 }}>
               {Object.keys(REGIONS).map(region => (
                 <button key={region} onClick={() => {
                   if (selectedRegion === region) { setSelectedRegion(''); setSelectedPref('') }
@@ -304,7 +304,7 @@ export default function HomePage() {
               <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', display: 'flex', overflow: 'hidden', marginBottom: 12, cursor: 'pointer', transition: 'all 0.2s' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 0 0 2px #E1306C, 0 8px 24px rgba(225,48,108,0.12)'; (e.currentTarget as HTMLElement).style.borderColor = 'transparent'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)' }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = 'none'; (e.currentTarget as HTMLElement).style.borderColor = '#DBDBDB'; (e.currentTarget as HTMLElement).style.transform = 'none' }}>
-                <div style={{ width: 140, flexShrink: 0, background: 'linear-gradient(135deg,#FBE0EC,#EED9F7)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 120, overflow: 'hidden' }}>
+                <div className="sp-salon-img" style={{ width: 140, flexShrink: 0, background: 'linear-gradient(135deg,#FBE0EC,#EED9F7)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 120, overflow: 'hidden' }}>
                   {salon.top_image
                     ? <img src={salon.top_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : <span style={{ fontSize: 36, fontWeight: 700, background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{salon.name?.[0] || 'S'}</span>}
@@ -478,7 +478,7 @@ export default function HomePage() {
 
           {/* 機能一覧 */}
           <div style={{ fontSize: 16, fontWeight: 700, color: '#111', textAlign: 'center', marginBottom: 20 }}>無料でできること</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10, marginBottom: 32 }}>
+          <div className="sp-2col" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10, marginBottom: 32 }}>
             {[
               { title: 'サロン情報・写真掲載', desc: 'メニュー・スタイリスト・施術写真を自由に登録' },
               { title: '24時間ネット予約', desc: '電話対応なしで予約受付。承認・キャンセルも管理画面から' },
@@ -516,7 +516,7 @@ export default function HomePage() {
           </div>
 
           {/* 安心訴求 */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 32 }}>
+          <div className="sp-3col" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 32 }}>
             {[
               { title: 'いつでも退会', desc: '契約期間の縛りなし。気軽に始められます' },
               { title: '個人も歓迎', desc: '個人サロン・自宅サロン・開業したてのサロンも大歓迎' },
@@ -543,7 +543,7 @@ export default function HomePage() {
       </div>
 
       {/* フッター */}
-      <footer style={{ background: '#222', color: '#999', padding: '32px 32px 24px', marginTop: 0 }}>
+      <footer className="sp-footer" style={{ background: '#222', color: '#999', padding: '32px 32px 24px', marginTop: 0 }}>
 
         <div style={{ maxWidth: 1080, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap' as const, gap: 24, marginBottom: 24 }}>
@@ -555,7 +555,7 @@ export default function HomePage() {
                 美容サロンの検索・予約サイト
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' as const }}>
+            <div className="sp-footer-links" style={{ display: 'flex', gap: 32, flexWrap: 'wrap' as const }}>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#555', letterSpacing: '0.08em', marginBottom: 10 }}>サービス</div>
                 <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
@@ -576,7 +576,7 @@ export default function HomePage() {
           </div>
           <div style={{ borderTop: '1px solid #333', paddingTop: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' as const, gap: 12 }}>
             <div style={{ fontSize: 11, color: '#555' }}>© 2026 Salon de Beauty. All rights reserved.</div>
-            <div style={{ display: 'flex', gap: 20 }}>
+            <div className="sp-footer-nav" style={{ display: 'flex', gap: 20 }}>
               <Link href="/terms" style={{ fontSize: 11, color: '#555', textDecoration: 'none' }}>利用規約</Link>
               <Link href="/privacy" style={{ fontSize: 11, color: '#555', textDecoration: 'none' }}>プライバシーポリシー</Link>
               <Link href="/guide" style={{ fontSize: 11, color: '#555', textDecoration: 'none' }}>ご利用ガイド</Link>
