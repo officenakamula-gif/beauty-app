@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
 import BlockButton from '@/components/BlockButton'
 import { sendEmail, emailTemplates } from '@/lib/email'
-import { DAY_NAMES, getAvailableSlots, getAllSlots } from '@/lib/availability'
+import { DAY_NAMES, getAvailableSlotsV2, getAllSlotsV2, SalonException, StylistBlock } from '@/lib/availability'
 import Link from 'next/link'
 
 // ─── 最近見たサロンをlocalStorageで管理 ───────────────────────────────
@@ -94,6 +94,8 @@ export default function SalonDetailPage() {
   const [bookingLoading, setBookingLoading] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
   const [isFirstVisit, setIsFirstVisit] = useState<boolean | null>(null) // null=未判定
+  const [salonExceptions, setSalonExceptions] = useState<SalonException[]>([])
+  const [stylistBlocks, setStylistBlocks] = useState<StylistBlock[]>([])
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -127,6 +129,9 @@ export default function SalonDetailPage() {
     setSalonPhotos(salonPhotoData || [])
     const { data: stylistPhotoData } = await supabase.from('stylist_photos').select('*').eq('salon_id', id).order('created_at', { ascending: false })
     setStylistPhotos(stylistPhotoData || [])
+    // サロン例外日・スタッフブロックを取得
+    const { data: excData } = await supabase.from('salon_exceptions').select('*').eq('salon_id', id)
+    setSalonExceptions((excData || []).map((e: any) => ({ date: e.date, type: e.type, open_start: e.open_start, open_end: e.open_end })))
     const { data: { user: currentUser } } = await supabase.auth.getUser()
     if (currentUser) {
       const { data: blockData } = await supabase
@@ -158,12 +163,18 @@ export default function SalonDetailPage() {
         .not('status', 'in', '("cancelled","expired")')
         .gte('reserved_at', now.toISOString()).lte('reserved_at', future.toISOString())
       setReservations(resData || [])
+      // スタッフブロックを取得
+      const { data: blkData } = await supabase.from('stylist_blocks').select('*').eq('stylist_id', stylistId)
+      setStylistBlocks((blkData || []).map((b: any) => ({ date: b.date, is_all_day: b.is_all_day, block_start: b.block_start, block_end: b.block_end })))
     } else {
       const stylistIds = stylists.map(s => s.id)
       if (stylistIds.length > 0) {
         const { data: schData } = await supabase.from('stylist_schedules').select('*').in('stylist_id', stylistIds)
         setSchedules(schData || [])
-      } else { setSchedules([]) }
+        // 全スタッフのブロックを取得
+        const { data: blkData } = await supabase.from('stylist_blocks').select('*').in('stylist_id', stylistIds)
+        setStylistBlocks((blkData || []).map((b: any) => ({ date: b.date, is_all_day: b.is_all_day, block_start: b.block_start, block_end: b.block_end })))
+      } else { setSchedules([]); setStylistBlocks([]) }
       const { data: resData } = await supabase.from('reservations')
         .select('*, menus(duration)').eq('salon_id', id).is('stylist_id', null)
         .not('status', 'in', '("cancelled","expired")')
@@ -186,6 +197,14 @@ export default function SalonDetailPage() {
     return schedules.find(s => s.stylist_id === stylistId && s.day_of_week === dow) || null
   }
 
+  // サロン営業時間（上限として使用）
+  const salonBusinessHours = salon?.business_hours_start && salon?.business_hours_end
+    ? { start: salon.business_hours_start, end: salon.business_hours_end }
+    : null
+
+  // サロン定休日（曜日）
+  const regularHolidays: string[] = salon?.regular_holiday || []
+
   const getDateAvailable = (date: string): boolean => {
     if (!selectedMenu) return false
     const interval = salon?.slot_interval || 30
@@ -193,9 +212,9 @@ export default function SalonDetailPage() {
     if (selectedStylist) {
       const schedule = getScheduleForDate(date, selectedStylist.id)
       const stylistRes = reservations.filter(r => r.stylist_id === selectedStylist.id)
-      return getAvailableSlots(date, schedule, duration, stylistRes, interval).length > 0
+      return getAvailableSlotsV2(date, schedule, duration, stylistRes, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays).length > 0
     } else {
-      return getAvailableSlots(date, null, duration, reservations, interval).length > 0
+      return getAvailableSlotsV2(date, null, duration, reservations, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays).length > 0
     }
   }
 
@@ -206,9 +225,9 @@ export default function SalonDetailPage() {
     if (selectedStylist) {
       const schedule = getScheduleForDate(date, selectedStylist.id)
       const stylistRes = reservations.filter(r => r.stylist_id === selectedStylist.id)
-      return getAvailableSlots(date, schedule, duration, stylistRes, interval)
+      return getAvailableSlotsV2(date, schedule, duration, stylistRes, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays)
     } else {
-      return getAvailableSlots(date, null, duration, reservations, interval)
+      return getAvailableSlotsV2(date, null, duration, reservations, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays)
     }
   }
 
@@ -218,9 +237,9 @@ export default function SalonDetailPage() {
     const duration = selectedMenu.duration
     if (selectedStylist) {
       const schedule = getScheduleForDate(date, selectedStylist.id)
-      return getAllSlots(date, schedule, duration, interval)
+      return getAllSlotsV2(date, schedule, duration, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays)
     } else {
-      return getAllSlots(date, null, duration, interval)
+      return getAllSlotsV2(date, null, duration, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays)
     }
   }
 
