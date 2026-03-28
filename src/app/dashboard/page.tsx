@@ -76,6 +76,12 @@ export default function DashboardPage() {
     const [editingScheduleStylistId, setEditingScheduleStylistId] = useState<string | null>(null)
     const [scheduleForm, setScheduleForm] = useState<any[]>([])
     const [scheduleSaving, setScheduleSaving] = useState(false)
+    const [blockStylistId, setBlockStylistId] = useState<string | null>(null)
+    const [stylistBlocks, setStylistBlocks] = useState<any[]>([])
+    const [blockMonth, setBlockMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
+    const [salonExceptions, setSalonExceptions] = useState<any[]>([])
+    const [exceptionForm, setExceptionForm] = useState({ date: '', type: 'closed', open_start: '10:00', open_end: '20:00', note: '' })
+    const [blockTimeForm, setBlockTimeForm] = useState({ is_all_day: true, block_start: '10:00', block_end: '12:00' })
     const [csvMonth, setCsvMonth] = useState(() => {
         const d = new Date()
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -158,6 +164,8 @@ export default function DashboardPage() {
                 setSalonPhotos(spData || [])
                 const { data: stpData } = await supabase.from('stylist_photos').select('*').eq('salon_id', salonData.id).order('created_at', { ascending: false })
                 setStylistPhotos(stpData || [])
+                const { data: excData } = await supabase.from('salon_exceptions').select('*').eq('salon_id', salonData.id).order('date')
+                setSalonExceptions(excData || [])
             }
         setLoading(false)
     }
@@ -327,6 +335,104 @@ export default function DashboardPage() {
         setScheduleSaving(false)
         setEditingScheduleStylistId(null)
         alert('スケジュールを保存しました')
+    }
+
+    // ── スタッフブロック管理 ──────────────────────────────────────────
+    const openBlockEditor = async (stylistId: string) => {
+        setBlockStylistId(stylistId)
+        const { data } = await supabase.from('stylist_blocks').select('*').eq('stylist_id', stylistId)
+        setStylistBlocks(data || [])
+    }
+
+    const getBlockForDate = (stylistId: string, date: string) => {
+        return stylistBlocks.filter(b => b.stylist_id === stylistId && b.date === date)
+    }
+
+    const toggleDayBlock = async (stylistId: string, date: string) => {
+        const existing = stylistBlocks.find(b => b.stylist_id === stylistId && b.date === date && b.is_all_day)
+        if (existing) {
+            // 解除：予約チェックなし（終日ブロック解除は問題なし）
+            await supabase.from('stylist_blocks').delete().eq('id', existing.id)
+            setStylistBlocks(stylistBlocks.filter(b => b.id !== existing.id))
+        } else {
+            // 設定：その日に予約があれば警告
+            const { count } = await supabase.from('reservations')
+                .select('id', { count: 'exact', head: true })
+                .eq('stylist_id', stylistId)
+                .in('status', ['pending', 'confirmed'])
+                .gte('reserved_at', `${date}T00:00:00+09:00`)
+                .lt('reserved_at', `${date}T23:59:59+09:00`)
+            if ((count ?? 0) > 0) {
+                alert(`⚠️ ${date} にはすでに予約が入っています。
+キャンセルしてからブロックを設定してください。`)
+                return
+            }
+            const { data } = await supabase.from('stylist_blocks').insert({ stylist_id: stylistId, date, is_all_day: true }).select().single()
+            if (data) setStylistBlocks([...stylistBlocks, data])
+        }
+    }
+
+    const addTimeBlock = async (stylistId: string, date: string) => {
+        if (!blockTimeForm.block_start || !blockTimeForm.block_end) { alert('時間を指定してください'); return }
+        // 予約との重複チェック
+        const { data: resInRange } = await supabase.from('reservations')
+            .select('id, reserved_at, menus(duration)')
+            .eq('stylist_id', stylistId)
+            .in('status', ['pending', 'confirmed'])
+            .gte('reserved_at', `${date}T${blockTimeForm.block_start}:00+09:00`)
+            .lt('reserved_at', `${date}T${blockTimeForm.block_end}:00+09:00`)
+        if (resInRange && resInRange.length > 0) {
+            alert(`⚠️ 指定した時間帯にすでに予約が入っています。
+キャンセルしてからブロックを設定してください。`)
+            return
+        }
+        const { data } = await supabase.from('stylist_blocks').insert({
+            stylist_id: stylistId, date, is_all_day: false,
+            block_start: blockTimeForm.block_start, block_end: blockTimeForm.block_end
+        }).select().single()
+        if (data) setStylistBlocks([...stylistBlocks, data])
+    }
+
+    const removeTimeBlock = async (blockId: string) => {
+        await supabase.from('stylist_blocks').delete().eq('id', blockId)
+        setStylistBlocks(stylistBlocks.filter(b => b.id !== blockId))
+    }
+
+    // ── サロン例外日管理 ──────────────────────────────────────────────
+    const loadSalonExceptions = async () => {
+        if (!salon) return
+        const { data } = await supabase.from('salon_exceptions').select('*').eq('salon_id', salon.id).order('date')
+        setSalonExceptions(data || [])
+    }
+
+    const addSalonException = async () => {
+        if (!salon || !exceptionForm.date) { alert('日付を選択してください'); return }
+        // 既存チェック
+        const dup = salonExceptions.find(e => e.date === exceptionForm.date)
+        if (dup) { alert('この日はすでに例外日が設定されています'); return }
+        // closedの場合は予約チェック
+        if (exceptionForm.type === 'closed') {
+            const { count } = await supabase.from('reservations')
+                .select('id', { count: 'exact', head: true })
+                .eq('salon_id', salon.id)
+                .in('status', ['pending', 'confirmed'])
+                .gte('reserved_at', `${exceptionForm.date}T00:00:00+09:00`)
+                .lt('reserved_at', `${exceptionForm.date}T23:59:59+09:00`)
+            if ((count ?? 0) > 0) {
+                alert(`⚠️ ${exceptionForm.date} にはすでに予約が入っています。
+キャンセルしてから臨時休業を設定してください。`)
+                return
+            }
+        }
+        const payload: any = { salon_id: salon.id, date: exceptionForm.date, type: exceptionForm.type, note: exceptionForm.note || null }
+        if (exceptionForm.type === 'open') { payload.open_start = exceptionForm.open_start; payload.open_end = exceptionForm.open_end }
+        const { data } = await supabase.from('salon_exceptions').insert(payload).select().single()
+        if (data) { setSalonExceptions([...salonExceptions, data]); setExceptionForm({ date: '', type: 'closed', open_start: '10:00', open_end: '20:00', note: '' }) }
+    }
+
+    const removeSalonException = async (id: string) => {
+        await supabase.from('salon_exceptions').delete().eq('id', id)
+        setSalonExceptions(salonExceptions.filter(e => e.id !== id))
     }
 
     const updateReservationStatus = async (id: string, status: string) => {
@@ -763,6 +869,70 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 )}
+                {/* 例外日管理（サロン情報タブ内） */}
+                {tab === 'salon' && salon && (
+                    <div style={{ marginTop: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', marginBottom: 8 }}>例外営業日・臨時休業</div>
+                        <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: '20px 24px', marginBottom: 16 }}>
+                            <div style={{ fontSize: 11, color: '#737373', lineHeight: 1.8, marginBottom: 14 }}>
+                                定休日だが特別営業する日・通常営業日だが臨時休業する日を登録します。<br />
+                                <span style={{ color: '#E1306C', fontWeight: 700 }}>臨時休業は予約が入っている場合設定できません。</span>
+                            </div>
+                            {/* 追加フォーム */}
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14, alignItems: 'flex-end' }}>
+                                <div style={{ flex: 1, minWidth: 120 }}>
+                                    <label style={labelStyle}>日付</label>
+                                    <input type="date" value={exceptionForm.date} onChange={e => setExceptionForm({ ...exceptionForm, date: e.target.value })} style={inputStyle} />
+                                </div>
+                                <div style={{ flex: 1, minWidth: 120 }}>
+                                    <label style={labelStyle}>種別</label>
+                                    <select value={exceptionForm.type} onChange={e => setExceptionForm({ ...exceptionForm, type: e.target.value })} style={inputStyle}>
+                                        <option value="closed">臨時休業</option>
+                                        <option value="open">特別営業</option>
+                                    </select>
+                                </div>
+                                {exceptionForm.type === 'open' && (
+                                    <>
+                                        <div style={{ flex: 1, minWidth: 100 }}>
+                                            <label style={labelStyle}>開始</label>
+                                            <input type="time" value={exceptionForm.open_start} onChange={e => setExceptionForm({ ...exceptionForm, open_start: e.target.value })} style={inputStyle} />
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 100 }}>
+                                            <label style={labelStyle}>終了</label>
+                                            <input type="time" value={exceptionForm.open_end} onChange={e => setExceptionForm({ ...exceptionForm, open_end: e.target.value })} style={inputStyle} />
+                                        </div>
+                                    </>
+                                )}
+                                <div style={{ flex: 2, minWidth: 140 }}>
+                                    <label style={labelStyle}>備考（任意）</label>
+                                    <input value={exceptionForm.note} onChange={e => setExceptionForm({ ...exceptionForm, note: e.target.value })} placeholder="例：年末年始、祝日特別営業" style={inputStyle} />
+                                </div>
+                                <button onClick={addSalonException}
+                                    style={{ background: grad, color: 'white', border: 'none', padding: '10px 18px', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' as any }}>追加</button>
+                            </div>
+                            {/* 例外日一覧 */}
+                            {salonExceptions.length === 0 ? (
+                                <div style={{ textAlign: 'center', color: '#737373', fontSize: 12, padding: '12px 0' }}>例外日はまだありません</div>
+                            ) : salonExceptions.map(ex => (
+                                <div key={ex.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F2F2F2', fontSize: 12 }}>
+                                    <div>
+                                        <span style={{ fontWeight: 700, color: ex.type === 'closed' ? '#C62828' : '#2E7D32', marginRight: 8 }}>
+                                            {ex.type === 'closed' ? '臨時休業' : '特別営業'}
+                                        </span>
+                                        <span style={{ color: '#262626' }}>{ex.date}</span>
+                                        {ex.type === 'open' && ex.open_start && (
+                                            <span style={{ color: '#737373', marginLeft: 8 }}>{ex.open_start}〜{ex.open_end}</span>
+                                        )}
+                                        {ex.note && <span style={{ color: '#737373', marginLeft: 8, fontSize: 11 }}>（{ex.note}）</span>}
+                                    </div>
+                                    <button onClick={() => removeSalonException(ex.id)}
+                                        style={{ fontSize: 11, color: '#C62828', border: '1px solid #FFCDD2', background: '#FFEBEE', padding: '3px 10px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' }}>削除</button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* 退会セクション（サロン情報タブ内） */}
                 {tab === 'salon' && (
                     <div style={{ marginTop: 8, borderTop: '1px solid #DBDBDB', paddingTop: 24 }}>
@@ -954,9 +1124,91 @@ export default function DashboardPage() {
                                                     style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #DBDBDB', background: 'none', padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: '#262626' }}>
                                                     {editingScheduleStylistId === s.id ? '閉じる' : 'スケジュール'}
                                                 </button>
+                                                <button onClick={async () => { if (blockStylistId === s.id) { setBlockStylistId(null) } else { await openBlockEditor(s.id) } }}
+                                                    style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #DBDBDB', background: blockStylistId === s.id ? '#FFF0F5' : 'none', padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: blockStylistId === s.id ? '#E1306C' : '#262626' }}>
+                                                    {blockStylistId === s.id ? '閉じる' : '予定管理'}
+                                                </button>
                                                 <button onClick={() => deleteStylist(s.id)} style={{ fontSize: 11, fontWeight: 700, border: '1.5px solid #FFCDD2', background: '#FFEBEE', color: '#C62828', padding: '5px 10px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>削除</button>
                                             </div>
                                         </div>
+
+                                        {/* ── 予定ブロック管理 ── */}
+                                        {blockStylistId === s.id && (() => {
+                                            const year = blockMonth.getFullYear()
+                                            const month = blockMonth.getMonth()
+                                            const firstDay = new Date(year, month, 1).getDay()
+                                            const daysInMonth = new Date(year, month + 1, 0).getDate()
+                                            const today = new Date(); today.setHours(0,0,0,0)
+                                            const [selectedBlockDate, setSelectedBlockDate_] = [null, () => {}] // カレンダーのみ
+                                            return (
+                                                <div style={{ borderTop: '1px solid #DBDBDB', background: '#FFF8FC', padding: 16 }}>
+                                                    <div style={{ fontSize: 12, fontWeight: 700, color: '#E1306C', marginBottom: 12 }}>予定管理（ブロック設定）</div>
+                                                    <div style={{ fontSize: 11, color: '#737373', marginBottom: 12, lineHeight: 1.7 }}>
+                                                        日付をタップで終日ブロック切替。時間指定は下のフォームから。<br />
+                                                        <span style={{ color: '#E1306C', fontWeight: 700 }}>※ 予約が入っている日時はブロックできません。</span>
+                                                    </div>
+                                                    {/* カレンダー */}
+                                                    <div style={{ background: 'white', borderRadius: 10, border: '1px solid #DBDBDB', padding: 12, marginBottom: 12 }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                                                            <button onClick={() => setBlockMonth(new Date(year, month - 1, 1))} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: '#737373' }}>◀</button>
+                                                            <span style={{ fontWeight: 700, fontSize: 13 }}>{year}年{month + 1}月</span>
+                                                            <button onClick={() => setBlockMonth(new Date(year, month + 1, 1))} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: '#737373' }}>▶</button>
+                                                        </div>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3, marginBottom: 4 }}>
+                                                            {['日','月','火','水','木','金','土'].map((d,i) => (
+                                                                <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: i===0?'#E53935':i===6?'#5851DB':'#737373' }}>{d}</div>
+                                                            ))}
+                                                        </div>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3 }}>
+                                                            {Array.from({ length: firstDay }, (_, i) => <div key={`e${i}`} />)}
+                                                            {Array.from({ length: daysInMonth }, (_, i) => {
+                                                                const d = i + 1
+                                                                const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+                                                                const isPast = new Date(dateStr + 'T00:00:00+09:00') < today
+                                                                const blocks = getBlockForDate(s.id, dateStr)
+                                                                const isAllDay = blocks.some(b => b.is_all_day)
+                                                                const hasTimeBlock = blocks.some(b => !b.is_all_day)
+                                                                return (
+                                                                    <button key={d} onClick={() => !isPast && toggleDayBlock(s.id, dateStr)} disabled={isPast}
+                                                                        style={{ aspectRatio: '1', borderRadius: 6, border: 'none', cursor: isPast ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: isAllDay ? 'linear-gradient(135deg,#F77737,#E1306C)' : hasTimeBlock ? '#FFF0F5' : isPast ? 'transparent' : '#F2F2F2', color: isAllDay ? 'white' : isPast ? '#DBDBDB' : '#262626' }}>
+                                                                        <span>{d}</span>
+                                                                        {isAllDay && <span style={{ fontSize: 8 }}>休</span>}
+                                                                        {!isAllDay && hasTimeBlock && <span style={{ fontSize: 8, color: '#E1306C' }}>一部</span>}
+                                                                    </button>
+                                                                )
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                    {/* 時間ブロック追加フォーム */}
+                                                    <div style={{ background: 'white', borderRadius: 10, border: '1px solid #DBDBDB', padding: 12, marginBottom: 12 }}>
+                                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#737373', marginBottom: 8 }}>時間指定でブロック</div>
+                                                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+                                                            <input type="date" value={blockTimeForm.is_all_day ? '' : (blockTimeForm as any).date || ''} onChange={e => setBlockTimeForm({ ...blockTimeForm, is_all_day: false, ...({ date: e.target.value } as any) })}
+                                                                style={{ border: '1.5px solid #DBDBDB', borderRadius: 8, padding: '5px 8px', fontSize: 11, fontFamily: 'inherit', flex: 1 }} />
+                                                            <input type="time" value={blockTimeForm.block_start} onChange={e => setBlockTimeForm({ ...blockTimeForm, block_start: e.target.value })}
+                                                                style={{ border: '1.5px solid #DBDBDB', borderRadius: 8, padding: '5px 8px', fontSize: 11, fontFamily: 'inherit', flex: 1 }} />
+                                                            <span style={{ fontSize: 11, color: '#737373' }}>〜</span>
+                                                            <input type="time" value={blockTimeForm.block_end} onChange={e => setBlockTimeForm({ ...blockTimeForm, block_end: e.target.value })}
+                                                                style={{ border: '1.5px solid #DBDBDB', borderRadius: 8, padding: '5px 8px', fontSize: 11, fontFamily: 'inherit', flex: 1 }} />
+                                                            <button onClick={() => { const d = (blockTimeForm as any).date; if(d) addTimeBlock(s.id, d) }}
+                                                                style={{ background: grad, color: 'white', border: 'none', padding: '6px 14px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' as any }}>追加</button>
+                                                        </div>
+                                                    </div>
+                                                    {/* 時間ブロック一覧 */}
+                                                    {stylistBlocks.filter(b => b.stylist_id === s.id && !b.is_all_day).length > 0 && (
+                                                        <div style={{ background: 'white', borderRadius: 10, border: '1px solid #DBDBDB', padding: 12 }}>
+                                                            <div style={{ fontSize: 11, fontWeight: 700, color: '#737373', marginBottom: 8 }}>時間ブロック一覧</div>
+                                                            {stylistBlocks.filter(b => b.stylist_id === s.id && !b.is_all_day).map(b => (
+                                                                <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #F2F2F2', fontSize: 11 }}>
+                                                                    <span style={{ color: '#262626', fontWeight: 700 }}>{b.date}　{b.block_start}〜{b.block_end}</span>
+                                                                    <button onClick={() => removeTimeBlock(b.id)} style={{ fontSize: 10, color: '#C62828', border: '1px solid #FFCDD2', background: '#FFEBEE', padding: '2px 8px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' }}>削除</button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )
+                                        })()}
 
                                         {editingScheduleStylistId === s.id && (
                                             <div style={{ borderTop: '1px solid #DBDBDB', background: '#FAFAFA', padding: '16px' }}>
