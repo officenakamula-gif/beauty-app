@@ -515,8 +515,14 @@ export default function DashboardPage() {
 
     const downloadCSV = async () => {
         const [year, mon] = csvMonth.split('-').map(Number)
-        const from = new Date(year, mon - 1, 1).toISOString()
-        const to = new Date(year, mon, 1).toISOString()
+        // JST固定でfrom/toを生成（Vercel=UTC環境でも9時間ずれが発生しないよう+09:00を明示）
+        const monStr = String(mon).padStart(2, '0')
+        const nextMonStr = String(mon === 12 ? 1 : mon + 1).padStart(2, '0')
+        const nextYear = mon === 12 ? year + 1 : year
+        const lastDay = new Date(year, mon, 0).getDate()
+        const lastDayStr = String(lastDay).padStart(2, '0')
+        const from = `${year}-${monStr}-01T00:00:00+09:00`
+        const to = `${nextYear}-${nextMonStr}-01T00:00:00+09:00`
 
         const { data } = await supabase
             .from('reservations')
@@ -532,14 +538,16 @@ export default function DashboardPage() {
         const fee = 0.05
         const transferFee = 330
 
-        // 発行日・対象期間
-        const issueDate = new Date().toLocaleDateString('ja-JP')
-        const periodStart = new Date(year, mon - 1, 1).toLocaleDateString('ja-JP')
-        const periodEnd = new Date(year, mon, 0).toLocaleDateString('ja-JP')
+        // 発行日・対象期間（JST固定で文字列生成）
+        const todayJST = new Date(new Date().getTime() + 9 * 60 * 60 * 1000)
+        const issueDate = todayJST.toISOString().split('T')[0].replace(/-/g, '/').replace(/(\d{4})\/(\d{2})\/(\d{2})/, '$1年$2月$3日')
+        const periodStart = `${year}年${mon}月1日`
+        const periodEnd = `${year}年${mon}月${lastDay}日`
         const period = `${periodStart} 〜 ${periodEnd}`
 
         // 支払期限（翌月末日）
-        const payDueDate = new Date(year, mon + 1, 0).toLocaleDateString('ja-JP')
+        const payLastDay = new Date(nextYear, mon === 12 ? 1 : mon, 0).getDate()
+        const payDueDate = `${nextYear}年${mon === 12 ? 1 : mon + 1}月${payLastDay}日`
 
         // 発行者情報ブロック
         const issuerBlock = [
@@ -558,7 +566,7 @@ export default function DashboardPage() {
         const rows = data.map((r: any) => {
             const price = r.menus?.price || 0
             return [
-                new Date(r.completed_at).toLocaleDateString('ja-JP'),
+                new Date(new Date(r.completed_at).getTime() + 9 * 60 * 60 * 1000).toISOString().split('T')[0].replace(/-/g, '/'), // JST固定
                 r.menus?.name || '',
                 r.stylists?.name || '指名なし',
                 price,
@@ -1262,8 +1270,9 @@ export default function DashboardPage() {
 
                     const monthlyData = months.map(m => {
                         const filtered = completedRes.filter((r: any) => {
-                            const d = new Date(r.completed_at)
-                            return d.getFullYear() === m.year && d.getMonth() + 1 === m.month
+                            // JST固定で月判定（UTC→JST +9時間）
+                            const d = new Date(new Date(r.completed_at).getTime() + 9 * 60 * 60 * 1000)
+                            return d.getUTCFullYear() === m.year && d.getUTCMonth() + 1 === m.month
                         })
                         return {
                             label: m.label,
