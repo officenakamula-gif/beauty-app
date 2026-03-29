@@ -100,6 +100,26 @@ export default function MyPage() {
 
   const gradText = { background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' } as any
 
+  const ShareButtons = ({ salonId, salonName, menuName }: { salonId: string, salonName: string, menuName: string }) => {
+    const salonUrl = `https://beauty-app-mhst.vercel.app/salons/${salonId}`
+    const shareText = `✂️ ${salonName} で ${menuName} を体験しました！\n${salonUrl}\n#SalonDeBeauty`
+    const xUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`
+    return (
+      <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' as const }}>
+        <a href={xUrl} target="_blank" rel="noopener noreferrer"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '7px 16px', borderRadius: 8, background: '#000', color: 'white', textDecoration: 'none' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          Xでシェア
+        </a>
+        <button onClick={() => { navigator.clipboard.writeText(shareText); alert('コピーしました！インスタグラムに貼り付けてシェアしてください。') }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '7px 16px', borderRadius: 8, background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4)', color: 'white', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="20" height="20" rx="5" ry="5" stroke="white" strokeWidth="2"/><circle cx="12" cy="12" r="5" stroke="white" strokeWidth="2"/><circle cx="17.5" cy="6.5" r="1.5" fill="white"/></svg>
+          インスタ用コピー
+        </button>
+      </div>
+    )
+  }
+
   const Card = ({ res, past }: { res: any, past: boolean }) => (
     <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: '18px 20px', marginBottom: 10, opacity: past ? 0.65 : 1 }}>
       <div className="sp-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -143,6 +163,10 @@ export default function MyPage() {
           style={{ marginTop: 10, fontSize: 12, color: '#737373', border: '1.5px solid #DBDBDB', background: 'none', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
           予約をキャンセルする
         </button>
+      )}
+      {/* completedのみシェアボタン表示 */}
+      {res.status === 'completed' && (
+        <ShareButtons salonId={res.salon_id} salonName={res.salons?.name} menuName={res.menus?.name} />
       )}
     </div>
   )
