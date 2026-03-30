@@ -205,6 +205,9 @@ export default function SalonDetailPage() {
   // サロン定休日（曜日）
   const regularHolidays: string[] = salon?.regular_holiday || []
 
+  // 予約受付締切時間（デフォルト24時間）
+  const deadlineHours: number = salon?.booking_deadline_hours ?? 24
+
   const getDateAvailable = (date: string): boolean => {
     if (!selectedMenu) return false
     const interval = salon?.slot_interval || 30
@@ -212,9 +215,9 @@ export default function SalonDetailPage() {
     if (selectedStylist) {
       const schedule = getScheduleForDate(date, selectedStylist.id)
       const stylistRes = reservations.filter(r => r.stylist_id === selectedStylist.id)
-      return getAvailableSlotsV2(date, schedule, duration, stylistRes, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays).length > 0
+      return getAvailableSlotsV2(date, schedule, duration, stylistRes, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays, deadlineHours).length > 0
     } else {
-      return getAvailableSlotsV2(date, null, duration, reservations, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays).length > 0
+      return getAvailableSlotsV2(date, null, duration, reservations, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays, deadlineHours).length > 0
     }
   }
 
@@ -225,9 +228,9 @@ export default function SalonDetailPage() {
     if (selectedStylist) {
       const schedule = getScheduleForDate(date, selectedStylist.id)
       const stylistRes = reservations.filter(r => r.stylist_id === selectedStylist.id)
-      return getAvailableSlotsV2(date, schedule, duration, stylistRes, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays)
+      return getAvailableSlotsV2(date, schedule, duration, stylistRes, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays, deadlineHours)
     } else {
-      return getAvailableSlotsV2(date, null, duration, reservations, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays)
+      return getAvailableSlotsV2(date, null, duration, reservations, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays, deadlineHours)
     }
   }
 
@@ -237,9 +240,9 @@ export default function SalonDetailPage() {
     const duration = selectedMenu.duration
     if (selectedStylist) {
       const schedule = getScheduleForDate(date, selectedStylist.id)
-      return getAllSlotsV2(date, schedule, duration, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays)
+      return getAllSlotsV2(date, schedule, duration, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays, deadlineHours)
     } else {
-      return getAllSlotsV2(date, null, duration, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays)
+      return getAllSlotsV2(date, null, duration, interval, salonBusinessHours, salonExceptions, stylistBlocks, regularHolidays, deadlineHours)
     }
   }
 
@@ -315,8 +318,8 @@ export default function SalonDetailPage() {
     const slotDate = new Date(`${selectedDate}T${selectedTime}:00+09:00`)
     const now = new Date()
     const diffHours = (slotDate.getTime() - now.getTime()) / (1000 * 60 * 60)
-    if (diffHours < 12) {
-      alert('この時間帯は受付終了しました（12時間前以降は予約できません）')
+    if (diffHours < deadlineHours) {
+      alert(`この時間帯は受付終了しました（${deadlineHours}時間前以降は予約できません）`)
       setBookingLoading(false)
       return
     }
@@ -885,7 +888,7 @@ export default function SalonDetailPage() {
                     <button onClick={() => setStep(2)} style={{ fontSize: 12, color: '#737373', background: 'none', border: 'none', cursor: 'pointer', marginBottom: 12, fontFamily: 'inherit' }}>← 戻る</button>
                     <div style={{ fontSize: 14, fontWeight: 700, color: '#111', marginBottom: 4 }}>日時を選ぶ</div>
                     <div style={{ fontSize: 11, color: '#737373', marginBottom: 2 }}>{selectedMenu?.name}　／　担当：{selectedStylist?.name || '指名なし（フリー枠）'}</div>
-                    <div style={{ fontSize: 11, color: '#F57F17', marginBottom: 12 }}>予約は12時間前まで受け付けています</div>
+                    <div style={{ fontSize: 11, color: '#F57F17', marginBottom: 12 }}>予約は{deadlineHours}時間前まで受け付けています</div>
 
                     {availabilityLoading ? (
                       <div style={{ textAlign: 'center', padding: '40px 0', color: '#737373', fontSize: 13 }}>空き枠を確認中...</div>

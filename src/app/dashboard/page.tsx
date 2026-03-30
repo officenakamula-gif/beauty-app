@@ -66,6 +66,7 @@ export default function DashboardPage() {
         regular_holiday: [] as string[],
         business_hours_start: '10:00',
         business_hours_end: '20:00',
+        booking_deadline_hours: 24,
     })
     const [menuForm, setMenuForm] = useState({ name: '', price: '', duration: '', description: '', is_first_visit: false })
     const [editingMenuId, setEditingMenuId] = useState<string | null>(null)
@@ -113,6 +114,7 @@ export default function DashboardPage() {
                 regular_holiday: salonData.regular_holiday || [],
                 business_hours_start: salonData.business_hours_start || '10:00',
                 business_hours_end: salonData.business_hours_end || '20:00',
+                booking_deadline_hours: salonData.booking_deadline_hours ?? 24,
             })
             const { data: menuData } = await supabase.from('menus').select('*').eq('salon_id', salonData.id)
             setMenus(menuData || [])
@@ -226,6 +228,7 @@ export default function DashboardPage() {
             regular_holiday: salonForm.regular_holiday,
             business_hours_start: salonForm.business_hours_start || null,
             business_hours_end: salonForm.business_hours_end || null,
+            booking_deadline_hours: salonForm.booking_deadline_hours,
         }
         if (salon) {
             const { error } = await supabase.from('salons').update(payload).eq('id', salon.id)
@@ -763,13 +766,22 @@ export default function DashboardPage() {
                                     placeholder="サロンの特徴・アピールポイント..."
                                     style={{ ...inputStyle, height: 90, resize: 'none' as any }} />
                             </div>
-                            <div style={{ marginBottom: 20 }}>
+                            <div style={{ marginBottom: 14 }}>
                                 <label style={labelStyle}>予約スロット間隔</label>
                                 <select value={salonForm.slot_interval} onChange={e => setSalonForm({ ...salonForm, slot_interval: parseInt(e.target.value) })} style={{ ...inputStyle }}>
                                     <option value={15}>15分間隔</option>
                                     <option value={30}>30分間隔</option>
                                     <option value={60}>60分間隔</option>
                                 </select>
+                            </div>
+                            <div style={{ marginBottom: 20 }}>
+                                <label style={labelStyle}>予約受付締切時間</label>
+                                <select value={salonForm.booking_deadline_hours} onChange={e => setSalonForm({ ...salonForm, booking_deadline_hours: parseInt(e.target.value) })} style={{ ...inputStyle }}>
+                                    {[1,2,3,6,12,24,48,72].map(h => (
+                                        <option key={h} value={h}>{h}時間前まで{h === 24 ? '（デフォルト）' : ''}</option>
+                                    ))}
+                                </select>
+                                <div style={{ fontSize: 11, color: '#737373', marginTop: 4 }}>予約可能な締切時間を設定します。この時間以降のスロットはグレーアウトされ予約不可になります。</div>
                             </div>
                             {/* ── 営業情報セクション ── */}
                             <div style={{ marginBottom: 20, paddingTop: 20, borderTop: '1px solid #DBDBDB' }}>

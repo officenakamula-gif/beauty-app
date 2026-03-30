@@ -45,12 +45,11 @@ export const isSlotAvailable = (slotTime: string, duration: number, dayReservati
 }
 
 // 12時間以内のスロットを除外（③対応）
-export const isSlotBookable = (dateStr: string, slotTime: string): boolean => {
-  const [sh, sm] = slotTime.split(':').map(Number)
+export const isSlotBookable = (dateStr: string, slotTime: string, deadlineHours: number = 24): boolean => {
   const slotDate = new Date(`${dateStr}T${slotTime}:00+09:00`)
   const now = new Date()
   const diffHours = (slotDate.getTime() - now.getTime()) / (1000 * 60 * 60)
-  return diffHours >= 12
+  return diffHours >= deadlineHours
 }
 
 export const getAvailableSlots = (
@@ -73,7 +72,7 @@ export const getAvailableSlots = (
   return generateSlots(sch.start_time, sch.end_time, intervalMin).filter(slot => {
     const [sh, sm] = slot.split(':').map(Number)
     if (sh * 60 + sm + duration > workEnd) return false
-    if (!isSlotBookable(date, slot)) return false  // ③対応：12時間前カット
+    if (!isSlotBookable(date, slot, 24)) return false  // ③対応（V1はデフォルト24時間）
     return isSlotAvailable(slot, duration, dayRes)
   })
 }
@@ -92,7 +91,7 @@ export const getAllSlots = (
   return generateSlots(sch.start_time, sch.end_time, intervalMin).filter(slot => {
     const [sh, sm] = slot.split(':').map(Number)
     if (sh * 60 + sm + duration > workEnd) return false
-    return isSlotBookable(date, slot)  // ③対応
+    return isSlotBookable(date, slot, 24)  // ③対応（V1はデフォルト24時間）
   })
 }
 // ─── サロン例外日・スタッフブロックを考慮したスロット計算 ──────────────────
@@ -149,10 +148,11 @@ export const getAvailableSlotsV2 = (
   duration: number,
   allReservations: any[],
   intervalMin: number,
-  salonBusinessHours: { start: string; end: string } | null,  // サロン営業時間
-  salonExceptions: SalonException[],                          // サロン例外日
-  stylistBlocks: StylistBlock[],                              // スタッフブロック
-  regularHolidays: string[]                                   // サロン定休日（曜日）
+  salonBusinessHours: { start: string; end: string } | null,
+  salonExceptions: SalonException[],
+  stylistBlocks: StylistBlock[],
+  regularHolidays: string[],
+  deadlineHours: number = 24                                  // 予約受付締切時間
 ): string[] => {
   const DAY_JP = ['日', '月', '火', '水', '木', '金', '土']
   const dow = new Date(date + 'T12:00:00+09:00').getDay()
@@ -196,7 +196,7 @@ export const getAvailableSlotsV2 = (
   return generateSlots(effectiveStart, effectiveEnd, intervalMin).filter(slot => {
     const [sh, sm] = slot.split(':').map(Number)
     if (sh * 60 + sm + duration > workEnd) return false
-    if (!isSlotBookable(date, slot)) return false
+    if (!isSlotBookable(date, slot, deadlineHours)) return false
     if (isBlockedByStylstBlock(slot, duration, stylistBlocks, date)) return false
     return isSlotAvailable(slot, duration, dayRes)
   })
@@ -211,7 +211,8 @@ export const getAllSlotsV2 = (
   salonBusinessHours: { start: string; end: string } | null,
   salonExceptions: SalonException[],
   stylistBlocks: StylistBlock[],
-  regularHolidays: string[]
+  regularHolidays: string[],
+  deadlineHours: number = 24
 ): string[] => {
   const DAY_JP = ['日', '月', '火', '水', '木', '金', '土']
   const dow = new Date(date + 'T12:00:00+09:00').getDay()
@@ -242,7 +243,7 @@ export const getAllSlotsV2 = (
   return generateSlots(effectiveStart, effectiveEnd, intervalMin).filter(slot => {
     const [sh, sm] = slot.split(':').map(Number)
     if (sh * 60 + sm + duration > workEnd) return false
-    if (!isSlotBookable(date, slot)) return false
+    if (!isSlotBookable(date, slot, deadlineHours)) return false
     if (isBlockedByStylstBlock(slot, duration, stylistBlocks, date)) return false
     return true
   })
