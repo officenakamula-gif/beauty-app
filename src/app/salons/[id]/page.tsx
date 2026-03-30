@@ -732,12 +732,23 @@ export default function SalonDetailPage() {
                 )}
                 {/* ログイン案内 */}
                 {!user && (
-                  <div style={{ background: '#FFFDE7', border: '1px solid #FFF176', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 13, color: '#F57F17' }}>予約にはログインが必要です</span>
-                    <button onClick={() => router.push(`/auth?redirect=/salons/${id}`)}
-                      style={{ background: '#FFA000', color: 'white', border: 'none', padding: '5px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
-                      ログイン
-                    </button>
+                  <div style={{ background: 'linear-gradient(135deg,#FFF0F5,#F5F0FF)', border: '1.5px solid #E1D5F5', borderRadius: 12, padding: '16px', marginBottom: 16 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#111', marginBottom: 6 }}>無料会員登録で予約できます</div>
+                    <div style={{ fontSize: 11, color: '#737373', lineHeight: 1.8, marginBottom: 12 }}>
+                      ✓ 予約・キャンセルをかんたん管理<br />
+                      ✓ 初回限定クーポンが使える<br />
+                      ✓ 来店後にXやインスタでシェア
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => router.push(`/auth?redirect=/salons/${id}`)}
+                        style={{ flex: 1, background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', color: 'white', border: 'none', padding: '10px 0', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        無料で会員登録
+                      </button>
+                      <button onClick={() => router.push(`/auth?redirect=/salons/${id}`)}
+                        style={{ flex: 1, background: 'white', color: '#737373', border: '1.5px solid #DBDBDB', padding: '10px 0', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        ログイン
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -802,7 +813,10 @@ export default function SalonDetailPage() {
                                     <span style={{ fontSize: 10, color: '#E1306C' }}>✓ あなたは初回限定対象です</span>
                                   )}
                                   {!isLocked && isFirstVisit === null && (
-                                    <span style={{ fontSize: 10, color: '#737373' }}>ログイン後に確認できます</span>
+                                    <button onClick={() => router.push(`/auth?redirect=/salons/${id}`)}
+                                      style={{ fontSize: 10, fontWeight: 700, color: 'white', background: 'linear-gradient(45deg,#F77737,#E1306C)', border: 'none', padding: '2px 10px', borderRadius: 100, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                      会員登録で使える →
+                                    </button>
                                   )}
                                 </div>
                               )}
