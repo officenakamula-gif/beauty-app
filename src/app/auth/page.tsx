@@ -16,6 +16,9 @@ function AuthContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
+  const [sentEmail, setSentEmail] = useState('')
+  const [isSalon, setIsSalon] = useState(false)
 
   // ユーザー登録
   const [fullName, setFullName] = useState('')
@@ -141,6 +144,48 @@ function AuthContent() {
     color: '#111',
     background: '#FAFAFA',
   }
+
+  // メール送信完了画面
+  if (emailSent) return (
+    <div style={{ minHeight: '100vh', background: '#FAFAFA', display: 'flex', flexDirection: 'column' }}>
+      <header className="sp-header" style={{ background: 'white', borderBottom: '1px solid #DBDBDB', padding: '0 32px', height: 56, display: 'flex', alignItems: 'center' }}>
+        <Link href="/" style={{ fontSize: 20, fontWeight: 700, textDecoration: 'none', ...gradStyle }}>Salon de Beauty</Link>
+      </header>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
+        <div className="sp-auth-form" style={{ width: '100%', maxWidth: 440 }}>
+          <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: 32, textAlign: 'center' }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>📧</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 8 }}>確認メールを送信しました</div>
+            <div style={{ fontSize: 13, color: '#737373', lineHeight: 1.9, marginBottom: 24 }}>
+              <span style={{ fontWeight: 700, color: '#262626' }}>{sentEmail}</span> 宛に確認メールを送りました。<br />
+              メール内のリンクをクリックして登録を完了してください。
+            </div>
+            <div style={{ background: '#F5F5F5', borderRadius: 10, padding: '12px 16px', marginBottom: 16, textAlign: 'left' }}>
+              <div style={{ fontSize: 11, color: '#737373', marginBottom: 4 }}>送信元</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#262626' }}>no-reply@mail.app.supabase.io</div>
+            </div>
+            <div style={{ background: '#FFF8E1', border: '1px solid #FFE082', borderRadius: 10, padding: '10px 14px', marginBottom: 24, fontSize: 12, color: '#7A5800', textAlign: 'left', lineHeight: 1.7 }}>
+              ⚠️ 迷惑メールフォルダに入る場合があります。届かない場合はご確認ください。
+            </div>
+            {isSalon && (
+              <div style={{ background: 'linear-gradient(135deg,#FFF0F5,#F5F0FF)', border: '1px solid #E1D5F5', borderRadius: 10, padding: '12px 14px', marginBottom: 24, fontSize: 12, color: '#833AB4', textAlign: 'left', lineHeight: 1.7 }}>
+                ✅ 認証後はダッシュボードからサロン情報を入力してください。<br />
+                管理者審査後に掲載が開始されます（通常1〜3営業日）。
+              </div>
+            )}
+            <button onClick={() => isSalon ? router.push('/dashboard') : router.push(redirectTo)}
+              style={{ width: '100%', background: 'linear-gradient(45deg,#F77737,#E1306C,#833AB4,#5851DB)', color: 'white', border: 'none', padding: 13, borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {isSalon ? 'ダッシュボードへ' : 'トップページへ'}
+            </button>
+            <button onClick={() => setEmailSent(false)}
+              style={{ marginTop: 12, width: '100%', background: 'none', color: '#737373', border: '1.5px solid #DBDBDB', padding: 11, borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+              メールアドレスを変更する
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAFA', display: 'flex', flexDirection: 'column' }}>
