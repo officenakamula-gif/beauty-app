@@ -21,7 +21,7 @@ export default function MyPage() {
     setUser(user)
     const { data } = await supabase
       .from('reservations')
-      .select('*, salons(name, area, phone, owner_id), menus(name, price), stylists(name)')
+      .select('*, salons(name, area, address, phone, owner_id), menus(name, price, duration), stylists(name)')
       .eq('user_id', user.id)
       .order('reserved_at', { ascending: false })
     setReservations(data || [])
@@ -146,6 +146,24 @@ export default function MyPage() {
           <div style={{ marginTop: 12, background: '#E8F5E9', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#2E7D32', fontWeight: 500, lineHeight: 1.7 }}>
             予約が確定しました。ご来店をお楽しみに。
           </div>
+          {/* Googleカレンダーに追加ボタン */}
+          {(() => {
+            const start = new Date(res.reserved_at)
+            const end = new Date(start.getTime() + (res.menus?.duration || 60) * 60 * 1000)
+            const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
+            const title = encodeURIComponent(`${res.salons?.name} / ${res.menus?.name}`)
+            const details = encodeURIComponent(`担当：${res.stylists?.name || '指名なし'}
+メニュー：${res.menus?.name}`)
+            const location = encodeURIComponent(`${res.salons?.area || ''} ${res.salons?.address || ''}`.trim())
+            const calUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${fmt(start)}/${fmt(end)}&details=${details}&location=${location}`
+            return (
+              <a href={calUrl} target="_blank" rel="noopener noreferrer"
+                style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, padding: '7px 14px', borderRadius: 8, background: 'white', color: '#4285F4', border: '1.5px solid #4285F4', textDecoration: 'none' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24"><path d="M19.5 3h-3V1.5h-1.5V3h-9V1.5H4.5V3h-3C.675 3 0 3.675 0 4.5v15C0 20.325.675 21 1.5 21h18c.825 0 1.5-.675 1.5-1.5v-15C21 3.675 20.325 3 19.5 3zm0 16.5h-18V7.5h18v12z" fill="#4285F4"/></svg>
+                Googleカレンダーに追加
+              </a>
+            )
+          })()}
           {/* confirmed後はキャンセル不可・サロンへ連絡を促す */}
           <div style={{ marginTop: 8, background: '#FFF8E1', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#8A6914', lineHeight: 1.7 }}>
             予約確定後のキャンセルはサロンへ直接ご連絡ください。

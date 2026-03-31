@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic'
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { REGIONS } from '@/lib/areas'
 import { GENRE_GROUPS, getGenresByCategory } from '@/lib/genres'
 import { DAY_NAMES } from '@/lib/availability'
@@ -34,6 +34,9 @@ const labelStyle: any = { fontSize: 12, fontWeight: 700, color: '#737373', displ
 
 export default function DashboardPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const [calendarConnected, setCalendarConnected] = useState(false)
+    const [calendarConnecting, setCalendarConnecting] = useState(false)
     const [user, setUser] = useState<any>(null)
     const [salon, setSalon] = useState<any>(null)
     const [menus, setMenus] = useState<any[]>([])
@@ -88,7 +91,13 @@ export default function DashboardPage() {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     })
 
-    useEffect(() => { init() }, [])
+    useEffect(() => {
+        init()
+        // カレンダー連携結果をURLパラメータで受け取る
+        const calendarStatus = searchParams?.get('calendar')
+        if (calendarStatus === 'success') alert('✅ Googleカレンダーと連携しました！')
+        if (calendarStatus === 'error') alert('❌ Googleカレンダーの連携に失敗しました。再度お試しください。')
+    }, [])
 
     const init = async () => {
         const { data: { user } } = await supabase.auth.getUser()
@@ -160,6 +169,15 @@ export default function DashboardPage() {
                 .eq('blocker_id', user.id)
             setBlocks(blockData || [])
         }
+        // カレンダー連携状態確認
+            if (salonData) {
+                const { data: tokenData } = await supabase
+                    .from('google_calendar_tokens')
+                    .select('salon_id')
+                    .eq('salon_id', salonData.id)
+                    .maybeSingle()
+                setCalendarConnected(!!tokenData)
+            }
         // 写真取得
             if (salonData) {
                 const { data: spData } = await supabase.from('salon_photos').select('*').eq('salon_id', salonData.id).order('created_at', { ascending: false })
@@ -438,11 +456,66 @@ export default function DashboardPage() {
         setSalonExceptions(salonExceptions.filter(e => e.id !== id))
     }
 
+    // ── Google Calendar連携 ───────────────────────────────────────────
+    const connectGoogleCalendar = () => {
+        if (!salon) return
+        const params = new URLSearchParams({
+            client_id: process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_CLIENT_ID || '',
+            redirect_uri: process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || '',
+            response_type: 'code',
+            scope: 'https://www.googleapis.com/auth/calendar.events',
+            access_type: 'offline',
+            prompt: 'consent',
+            state: salon.id, // salon_idをstateで渡す
+        })
+        window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
+    }
+
+    const disconnectGoogleCalendar = async () => {
+        if (!salon || !confirm('Googleカレンダーの連携を解除しますか？')) return
+        await supabase.from('google_calendar_tokens').delete().eq('salon_id', salon.id)
+        setCalendarConnected(false)
+    }
+
+    const addCalendarEvent = async (res: any) => {
+        if (!salon || !calendarConnected) return
+        const startDate = new Date(res.reserved_at)
+        const endDate = new Date(startDate.getTime() + (res.menus?.duration || 60) * 60 * 1000)
+        await fetch('/api/google/calendar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                salon_id: salon.id,
+                reservation_id: res.id,
+                summary: `【予約】${res.user_email || 'お客様'} / ${res.menus?.name || ''} / ${res.stylists?.name || '担当未定'}`,
+                description: `メニュー：${res.menus?.name || ''}
+担当：${res.stylists?.name || '指名なし'}
+所要時間：${res.menus?.duration || 60}分`,
+                location: `${salon.area || ''} ${salon.address || ''}`.trim(),
+                start: startDate.toISOString(),
+                end: endDate.toISOString(),
+            }),
+        })
+    }
+
+    const removeCalendarEvent = async (res: any) => {
+        if (!salon || !calendarConnected || !res.google_calendar_event_id) return
+        await fetch('/api/google/calendar', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ salon_id: salon.id, event_id: res.google_calendar_event_id }),
+        })
+    }
+
     const updateReservationStatus = async (id: string, status: string) => {
         const updates: any = { status }
-        // キャンセル時はcancelled_byをsalonとして記録（決済実装時の返金判定用）
         if (status === 'cancelled') updates.cancelled_by = 'salon'
         await supabase.from('reservations').update(updates).eq('id', id)
+        const res = reservations.find(r => r.id === id)
+        // confirmed時：カレンダーにイベント追加
+        if (status === 'confirmed' && res) await addCalendarEvent(res)
+        // cancelled時：カレンダーからイベント削除
+        if (status === 'cancelled' && res) await removeCalendarEvent(res)
         setReservations(reservations.map(r => r.id === id ? { ...r, ...updates } : r))
     }
 
@@ -949,6 +1022,45 @@ export default function DashboardPage() {
                                         style={{ fontSize: 11, color: '#C62828', border: '1px solid #FFCDD2', background: '#FFEBEE', padding: '3px 10px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' }}>削除</button>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Google Calendar連携（サロン情報タブ内） */}
+                {tab === 'salon' && salon && (
+                    <div style={{ marginTop: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#737373', marginBottom: 8 }}>外部連携</div>
+                        <div style={{ background: 'white', borderRadius: 16, border: '1px solid #DBDBDB', padding: '20px 24px', marginBottom: 16 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M19.5 3h-3V1.5h-1.5V3h-9V1.5H4.5V3h-3C.675 3 0 3.675 0 4.5v15C0 20.325.675 21 1.5 21h18c.825 0 1.5-.675 1.5-1.5v-15C21 3.675 20.325 3 19.5 3zm0 16.5h-18V7.5h18v12z" fill="#4285F4"/>
+                                        </svg>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: '#262626' }}>Googleカレンダー連携</div>
+                                        {calendarConnected && (
+                                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#E8F5E9', color: '#2E7D32' }}>連携中</span>
+                                        )}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: '#737373', lineHeight: 1.7 }}>
+                                        予約確定時に自動でGoogleカレンダーにイベントを追加します。<br />
+                                        キャンセル時は自動で削除されます。
+                                    </div>
+                                </div>
+                                <div style={{ flexShrink: 0, marginLeft: 16 }}>
+                                    {calendarConnected ? (
+                                        <button onClick={disconnectGoogleCalendar}
+                                            style={{ fontSize: 12, fontWeight: 700, border: '1.5px solid #FFCDD2', background: '#FFEBEE', color: '#C62828', padding: '7px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                            連携解除
+                                        </button>
+                                    ) : (
+                                        <button onClick={connectGoogleCalendar}
+                                            style={{ fontSize: 12, fontWeight: 700, border: 'none', background: 'linear-gradient(45deg,#4285F4,#34A853)', color: 'white', padding: '7px 16px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                            Googleで連携する
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
