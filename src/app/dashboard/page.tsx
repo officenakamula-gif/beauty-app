@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 import { REGIONS } from '@/lib/areas'
 import { GENRE_GROUPS, getGenresByCategory } from '@/lib/genres'
 import { DAY_NAMES } from '@/lib/availability'
@@ -32,7 +33,7 @@ const findPrefForArea = (area: string): string => {
 const inputStyle: any = { width: '100%', border: '1.5px solid #DBDBDB', borderRadius: 10, padding: '10px 14px', fontSize: 13, fontFamily: 'inherit', outline: 'none', color: '#111', background: '#FAFAFA' }
 const labelStyle: any = { fontSize: 12, fontWeight: 700, color: '#737373', display: 'block', marginBottom: 6 }
 
-export default function DashboardPage() {
+function DashboardContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [calendarConnected, setCalendarConnected] = useState(false)
@@ -1905,5 +1906,12 @@ export default function DashboardPage() {
 
             </div>
         </div>
-    )
+    )}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ color: '#737373' }}>読み込み中...</div></div>}>
+      <DashboardContent />
+    </Suspense>
+  )
 }
