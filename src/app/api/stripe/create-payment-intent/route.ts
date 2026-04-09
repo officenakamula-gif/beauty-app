@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-12-18.acacia' })
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-01-28.clover' })
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,6 +17,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'パラメータが不正です' }, { status: 400 })
     }
 
+    // 予約の存在確認
     const { data: reservation, error: resError } = await supabase
       .from('reservations')
       .select('id, payment_status')
@@ -31,10 +32,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'すでに決済処理済みです' }, { status: 400 })
     }
 
+    // Stripe PaymentIntent作成（オーソリ：capture_method=manual）
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount),
+      amount: Math.round(amount), // 円単位（JPYは最小単位が1円）
       currency: 'jpy',
-      capture_method: 'manual',
+      capture_method: 'manual', // 承認後にキャプチャ
       metadata: {
         reservation_id: reservationId,
         salon_name: salonName,
@@ -43,6 +45,7 @@ export async function POST(request: Request) {
       description: `${salonName} - ${menuName}`,
     })
 
+    // reservationsにpayment_intent_idを保存
     await supabase
       .from('reservations')
       .update({

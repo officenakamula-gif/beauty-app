@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-12-18.acacia' })
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-01-28.clover' })
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// サロンが予約を承認したときに呼ぶ → キャプチャ（引き落とし確定）
 export async function POST(request: Request) {
   try {
     const { reservationId } = await request.json()
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
     }
 
     if (!reservation.stripe_payment_intent_id) {
+      // 事前決済なし（現地払い）の場合はスキップ
       return NextResponse.json({ skipped: true })
     }
 
@@ -31,6 +33,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ skipped: true })
     }
 
+    // キャプチャ実行
     await stripe.paymentIntents.capture(reservation.stripe_payment_intent_id)
 
     await supabase
